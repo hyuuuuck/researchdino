@@ -1029,29 +1029,36 @@ function MapScreen({
       <div className="rdos-map-stage">
         <svg className="rdos-map-flow" viewBox="0 0 1300 685" aria-hidden="true">
           <defs>
-            <marker id="rdos-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
-              <path className="rdos-arrow-shape" d="M0 0L9 4.5L0 9" fill="#c8c8c8" />
-              </marker>
-            <marker id="rdos-arrow-live" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <marker id="rdos-arrow-directive" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path className="rdos-arrow-shape" d="M0 0L9 4.5L0 9" fill="#1a1719" />
+            </marker>
+            <marker id="rdos-arrow-review" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path className="rdos-arrow-shape" d="M0 0L9 4.5L0 9" fill="#8d8d8d" />
+            </marker>
+            <marker id="rdos-arrow-evidence" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
               <path className="rdos-arrow-shape" d="M0 0L9 4.5L0 9" fill="#2f7d5f" />
             </marker>
+            <marker id="rdos-arrow-store" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path className="rdos-arrow-shape" d="M0 0L9 4.5L0 9" fill="#a6a6a6" />
+            </marker>
           </defs>
-          <ManualFlow d="M580 198V252" live kind="directive" label="L1 Directive" x={602} y={224} />
-          <ManualFlow d="M650 252V198" kind="brief" label="R1 Brief" x={671} y={224} />
-          <ManualFlow d="M420 343C342 343 332 322 271 322" live kind="task" label="T1 Search Task" x={323} y={318} />
-          <ManualFlow d="M585 434V468H150V494" kind="task" label="Task Fanout" x={452} y={464} />
-          <ManualFlow d="M585 468H438V494" kind="task" />
-          <ManualFlow d="M585 468H703V494" kind="task" />
-          <ManualFlow d="M585 468H968V494" kind="task" />
-          <ManualFlow d="M585 468H1205V494" kind="task" />
-          <ManualFlow d="M144 416V494" live kind="data" label="C1 Search-Read" x={161} y={456} />
-          <ManualFlow d="M274 580H315" live kind="data" label="C2 Reader-Critic" x={322} y={480} />
-          <ManualFlow d="M560 580H580" live kind="data" label="C3 Critic-Strategy" x={580} y={480} />
-          <ManualFlow d="M825 580H845" live kind="data" label="C4 Strategy-Experiment" x={838} y={480} />
-          <ManualFlow d="M703 666C772 684 1060 684 1205 666" kind="data" label="C5 Strategy/Reader -> Writer" x={882} y={674} />
-          <ManualFlow d="M730 122H805V210H1015V278" kind="store" label="A1 Approved Store" x={912} y={210} />
-          <ManualFlow d="M1157 422V494" kind="store" label="K2 Library -> Writing" x={1174} y={456} />
-          <ManualFlow d="M1015 354C918 393 812 444 703 494" kind="store" label="K1 Library -> Strategy" x={845} y={410} />
+          <ManualFlow d="M580 198V252" live kind="directive" label="1 Leader direction" x={572} y={224} />
+          <ManualFlow d="M650 252V198" kind="brief" label="8 Coordinator brief" x={700} y={224} />
+          <ManualFlow d="M420 343H271" live kind="task" label="2 Search assignment" x={346} y={324} />
+
+          <ManualFlow d="M144 416V494" live kind="data" label="3 Papers to Reader" x={166} y={456} />
+          <ManualFlow d="M274 580H315" live kind="data" />
+          <ManualFlow d="M560 580H580" live kind="data" />
+          <ManualFlow d="M825 580H845" live kind="data" />
+          <ManualFlow d="M1090 580H1110" live kind="data" />
+
+          <ManualFlow d="M438 494V462H585V434" kind="brief" />
+          <ManualFlow d="M703 494V452H615V434" kind="brief" label="Department briefs to Coordinator" x={560} y={452} />
+          <ManualFlow d="M968 494V452H660V434" kind="brief" />
+
+          <ManualFlow d="M730 198V218H1015V306" kind="store" label="Approved to Library" x={890} y={218} />
+          <ManualFlow d="M1050 422V460H703V494" kind="store" label="Library reuse to Strategy" x={1005} y={460} />
+          <ManualFlow d="M1185 422V460H1205V494" kind="store" label="Library to Writing" x={1218} y={448} />
         </svg>
 
         <MapInfoCards stats={stats} />
@@ -1280,12 +1287,19 @@ function ManualFlow({
   y?: number;
 }) {
   const labelWidth = label ? Math.max(82, label.length * 7 + 22) : 0;
+  const markerId = live
+    ? "rdos-arrow-evidence"
+    : kind === "directive"
+      ? "rdos-arrow-directive"
+      : kind === "store"
+        ? "rdos-arrow-store"
+        : "rdos-arrow-review";
   return (
     <g className={`rdos-flow-group rdos-flow-group--${kind}${live ? " is-live" : ""}`}>
       <path
         className={`rdos-flow-line rdos-flow-line--${kind}${live ? " is-live" : ""}`}
         d={d}
-        markerEnd={live ? "url(#rdos-arrow-live)" : "url(#rdos-arrow)"}
+        markerEnd={`url(#${markerId})`}
       />
       {label && (
         <g className="rdos-flow-label" transform={`translate(${x} ${y})`}>
@@ -1300,12 +1314,20 @@ function ManualFlow({
 function MapInfoCards({ stats }: { stats: { online: number; running: number; waiting: number; successRate: number } }) {
   return (
     <>
+      <aside className="rdos-map-card rdos-flow-guide-card">
+        <strong>Workflow Path</strong>
+        <span><b>1</b> Leader sets direction, Coordinator assigns work</span>
+        <span><b>2</b> Search collects papers, Reader extracts evidence</span>
+        <span><b>3</b> Debate pressure-tests claims, Strategy forms hypotheses</span>
+        <span><b>4</b> Experiment designs tests, Writer drafts from approved knowledge</span>
+        <span><b>5</b> Leader-approved outputs are stored in Library</span>
+      </aside>
       <aside className="rdos-map-card rdos-legend-card">
         <strong>Legend</strong>
         <span><i className="solid" />Directive</span>
-        <span><i className="dash" />Brief / Update</span>
-        <span><i className="long" />Data Flow</span>
-        <span><i className="dot" />Store / Archive</span>
+        <span><i className="dash" />Brief / Review</span>
+        <span><i className="long" />Evidence Flow</span>
+        <span><i className="dot" />Library Reuse</span>
       </aside>
       <aside className="rdos-map-card rdos-health-card">
         <strong>System Health</strong>
