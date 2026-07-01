@@ -139,9 +139,22 @@ const taskRoomOptions: Array<{ value: RoomId; label: string }> = [
 ];
 
 type AutonomyMode = "manual" | "assisted" | "auto";
+type SourceAccessMethod = "api_key" | "browser_session" | "institution_sso" | "manual_entitlement";
+type SourceAccountStatus = "connected" | "needs_reauth" | "not_configured";
+
+type SourceAccountConnection = {
+  status: SourceAccountStatus;
+  method: SourceAccessMethod;
+  accountLabel: string;
+  institution: string;
+  credentialRef: string;
+  secretFingerprint: string;
+  lastCheckedAt: string;
+};
 
 type ControlSettings = {
   sourceEnabled: Record<string, boolean>;
+  sourceAccounts: Record<string, SourceAccountConnection>;
   autonomyMode: AutonomyMode;
   autoApproveLowRisk: boolean;
   maxParallelTasks: number;
@@ -161,6 +174,41 @@ const modelOptions = [
   "mistral",
   "manual-review",
 ] as const;
+
+const sourceAccessMethodLabels: Record<SourceAccessMethod, string> = {
+  api_key: "API key",
+  browser_session: "Browser session",
+  institution_sso: "Institution SSO",
+  manual_entitlement: "Manual entitlement",
+};
+
+function sourceAccessMethodsFor(connector: PaperSourceConnector): SourceAccessMethod[] {
+  if (connector.provider === "elsevier") return ["api_key", "institution_sso", "browser_session", "manual_entitlement"];
+  if (connector.provider === "nature" || connector.provider === "science") {
+    return ["institution_sso", "browser_session", "manual_entitlement"];
+  }
+  return ["manual_entitlement"];
+}
+
+function defaultSourceAccount(connector: PaperSourceConnector): SourceAccountConnection {
+  const method = sourceAccessMethodsFor(connector)[0] ?? "manual_entitlement";
+  return {
+    status: "not_configured",
+    method,
+    accountLabel: "",
+    institution: "",
+    credentialRef: "",
+    secretFingerprint: "",
+    lastCheckedAt: "",
+  };
+}
+
+function fingerprintSecret(secret: string) {
+  const trimmed = secret.trim();
+  if (!trimmed) return "";
+  const visible = trimmed.length <= 4 ? trimmed : trimmed.slice(-4);
+  return `saved ref ending ${visible.padStart(4, "*")}`;
+}
 
 type AgentProfile = {
   mission: string;
@@ -311,6 +359,7 @@ function approvalForStatus(status: WorkflowStatus): WorkflowCardData["approvalSt
 function defaultControlSettings(sourceConnectors: PaperSourceConnector[]): ControlSettings {
   return {
     sourceEnabled: Object.fromEntries(sourceConnectors.map((connector) => [connector.id, connector.enabled])),
+    sourceAccounts: Object.fromEntries(sourceConnectors.map((connector) => [connector.id, defaultSourceAccount(connector)])),
     autonomyMode: "assisted",
     autoApproveLowRisk: false,
     maxParallelTasks: 6,
@@ -326,6 +375,10 @@ function mergeControlSettings(base: ControlSettings, sourceConnectors: PaperSour
     sourceEnabled: {
       ...Object.fromEntries(sourceConnectors.map((connector) => [connector.id, connector.enabled])),
       ...base.sourceEnabled,
+    },
+    sourceAccounts: {
+      ...Object.fromEntries(sourceConnectors.map((connector) => [connector.id, defaultSourceAccount(connector)])),
+      ...(base.sourceAccounts ?? {}),
     },
   };
 }
@@ -2162,6 +2215,34 @@ function SettingsScreen({
     }));
   }
 
+  function updateSourceAccount(sourceId: string, account: SourceAccountConnection) {
+    setSettings((current) => ({
+      ...current,
+      sourceEnabled: {
+        ...current.sourceEnabled,
+        [sourceId]: account.status === "connected",
+      },
+      sourceAccounts: {
+        ...current.sourceAccounts,
+        [sourceId]: account,
+      },
+    }));
+  }
+
+  function disconnectSourceAccount(connector: PaperSourceConnector) {
+    setSettings((current) => ({
+      ...current,
+      sourceEnabled: {
+        ...current.sourceEnabled,
+        [connector.id]: false,
+      },
+      sourceAccounts: {
+        ...current.sourceAccounts,
+        [connector.id]: defaultSourceAccount(connector),
+      },
+    }));
+  }
+
   function handleSave() {
     window.localStorage.setItem(controlSettingsStorageKey, JSON.stringify(settings));
     setSavedSettings(settings);
@@ -2190,8 +2271,11 @@ function SettingsScreen({
               <SourceConnectorRow
                 connector={connector}
                 enabled={Boolean(settings.sourceEnabled[connector.id])}
+                account={settings.sourceAccounts[connector.id] ?? defaultSourceAccount(connector)}
                 key={connector.id}
                 onToggle={() => toggleSource(connector.id)}
+                onUpdateAccount={(account) => updateSourceAccount(connector.id, account)}
+                onDisconnect={() => disconnectSourceAccount(connector)}
               />
             ))}
           </div>
@@ -2271,15 +2355,61 @@ function SettingsScreen({
 function SourceConnectorRow({
   connector,
   enabled,
+  account,
   onToggle,
+  onUpdateAccount,
+  onDisconnect,
 }: {
   connector: PaperSourceConnector;
   enabled: boolean;
+  account: SourceAccountConnection;
   onToggle: () => void;
+  onUpdateAccount: (account: SourceAccountConnection) => void;
+  onDisconnect: () => void;
 }) {
-  const status = enabled ? (connector.access === "license_gated" ? "Enabled, needs account" : "Enabled") : "Disabled";
+  const [open, setOpen] = useState(false);
+  const [method, setMethod] = useState<SourceAccessMethod>(account.method);
+  const [accountLabel, setAccountLabel] = useState(account.accountLabel);
+  const [institution, setInstitution] = useState(account.institution);
+  const [credentialRef, setCredentialRef] = useState(account.credentialRef);
+  const [secretDraft, setSecretDraft] = useState("");
+  const gated = connector.access === "license_gated";
+  const configured = gated ? account.status === "connected" : enabled;
+  const status = gated
+    ? configured
+      ? `Connected via ${sourceAccessMethodLabels[account.method]}`
+      : "Needs account connection"
+    : enabled
+      ? "Enabled"
+      : "Disabled";
+  const methods = sourceAccessMethodsFor(connector);
+
+  useEffect(() => {
+    setMethod(account.method);
+    setAccountLabel(account.accountLabel);
+    setInstitution(account.institution);
+    setCredentialRef(account.credentialRef);
+    setSecretDraft("");
+  }, [account.accountLabel, account.credentialRef, account.institution, account.method]);
+
+  function handleConnect(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const ref = credentialRef.trim() || `${connector.id}-${method}-credential`;
+    onUpdateAccount({
+      status: "connected",
+      method,
+      accountLabel: accountLabel.trim() || connector.label,
+      institution: institution.trim(),
+      credentialRef: ref,
+      secretFingerprint: fingerprintSecret(secretDraft) || account.secretFingerprint,
+      lastCheckedAt: currentDisplayTime(),
+    });
+    setSecretDraft("");
+    setOpen(false);
+  }
+
   return (
-    <button className={`rdos-source-row${enabled ? " is-enabled" : ""}`} type="button" onClick={onToggle}>
+    <article className={`rdos-source-row${configured ? " is-enabled" : ""}${gated ? " is-gated" : ""}`}>
       <div>
         <strong>{connector.label}</strong>
         <span>{connector.scope}</span>
@@ -2295,8 +2425,69 @@ function SourceConnectorRow({
         </div>
       </dl>
       <p>{connector.notes}</p>
-      <em>{enabled ? "Click to disable" : "Click to enable"}</em>
-    </button>
+      {gated ? (
+        <>
+          {configured && (
+            <div className="rdos-source-account-summary">
+              <span>{account.accountLabel || connector.label}</span>
+              <span>{account.institution || "No institution set"}</span>
+              <span>{account.credentialRef || "No credential ref"}</span>
+              <span>{account.secretFingerprint || "Secret not stored here"}</span>
+            </div>
+          )}
+          <div className="rdos-source-actions">
+            <button type="button" onClick={() => setOpen((value) => !value)}>
+              {open ? "Close" : configured ? "Edit account" : "Connect account"}
+            </button>
+            {configured && <button type="button" onClick={onDisconnect}>Disconnect</button>}
+          </div>
+          {open && (
+            <form className="rdos-source-account-form" onSubmit={handleConnect}>
+              <label>
+                Access method
+                <select value={method} onChange={(event) => setMethod(event.target.value as SourceAccessMethod)}>
+                  {methods.map((option) => (
+                    <option value={option} key={option}>{sourceAccessMethodLabels[option]}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Account / profile label
+                <input value={accountLabel} onChange={(event) => setAccountLabel(event.target.value)} placeholder="e.g. SH institutional access" />
+              </label>
+              <label>
+                Institution / library
+                <input value={institution} onChange={(event) => setInstitution(event.target.value)} placeholder="e.g. university library, lab account" />
+              </label>
+              <label>
+                Credential ref
+                <input value={credentialRef} onChange={(event) => setCredentialRef(event.target.value)} placeholder={`${connector.id}-${method}`} />
+              </label>
+              {(method === "api_key" || method === "browser_session") && (
+                <label>
+                  Secret / session token
+                  <input
+                    value={secretDraft}
+                    onChange={(event) => setSecretDraft(event.target.value)}
+                    placeholder={method === "api_key" ? "Paste API key once; only fingerprint is saved" : "Session/profile note; raw token is not persisted"}
+                    type="password"
+                  />
+                </label>
+              )}
+              <p>Raw passwords and tokens are not stored in browser settings. This registers the connection method and a credential reference for the local connector.</p>
+              <div className="rdos-source-actions">
+                <button type="submit">Save connection</button>
+                <button type="button" onClick={() => setOpen(false)}>Cancel</button>
+              </div>
+            </form>
+          )}
+        </>
+      ) : (
+        <div className="rdos-source-actions">
+          <button type="button" onClick={onToggle}>{enabled ? "Disable source" : "Enable source"}</button>
+        </div>
+      )}
+    </article>
   );
 }
 

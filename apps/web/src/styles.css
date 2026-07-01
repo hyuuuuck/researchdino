@@ -5303,34 +5303,33 @@ button {
 
 .rdos-source-list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
   margin-top: 14px;
 }
 
 .rdos-source-row {
   display: grid;
   align-content: start;
-  gap: 7px;
+  gap: 10px;
   border: 1px solid #e3e3e3;
   border-radius: 12px;
   background: #fafafa;
-  padding: 10px;
+  padding: 12px;
   color: inherit;
-  cursor: pointer;
   font: inherit;
   text-align: left;
   transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .rdos-source-row.is-enabled {
-  border-color: #1a1719;
+  border-color: #2f7d5f;
   background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(47, 125, 95, 0.3);
 }
 
 .rdos-source-row:hover {
   border-color: #1a1719;
-  box-shadow: inset 0 0 0 1px #1a1719;
 }
 
 .rdos-source-row strong {
@@ -5388,6 +5387,84 @@ button {
   font-size: 11px;
   font-weight: 800;
   text-transform: capitalize;
+}
+
+.rdos-source-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rdos-source-actions button {
+  border: 1.3px solid #1a1719;
+  border-radius: 999px;
+  background: #fff;
+  color: #1a1719;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 850;
+  padding: 7px 12px;
+}
+
+.rdos-source-actions button:hover {
+  background: #1a1719;
+  color: #fff;
+}
+
+.rdos-source-account-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px dashed #d5d5d5;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+}
+
+.rdos-source-account-summary span {
+  overflow: hidden;
+  color: #4a4a4a;
+  font-size: 10.5px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rdos-source-account-form {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #ededed;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+}
+
+.rdos-source-account-form label {
+  display: grid;
+  gap: 6px;
+  color: #6b6b6b;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.rdos-source-account-form input,
+.rdos-source-account-form select {
+  width: 100%;
+  border: 1px solid #e3e3e3;
+  border-radius: 9px;
+  background: #fff;
+  color: #1a1719;
+  font: inherit;
+  font-size: 12px;
+  padding: 8px 9px;
+}
+
+.rdos-source-account-form p {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 10.5px;
+  line-height: 1.35;
 }
 
 .rdos-toggle-row {
