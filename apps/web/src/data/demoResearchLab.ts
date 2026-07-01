@@ -2,6 +2,32 @@ import type { AgentLogEntry, LabInstanceData, LaboratoryRoomData, ResearchProjec
 
 const localOllamaModel = "local-research-dino";
 const localOllamaModelRef = "f0ee18320b71441183a82f5f4377cc81...";
+const claudeOpusModel = "claude-opus-4-8";
+const claudeSonnetModel = "claude-sonnet-5";
+const claudeHaikuModel = "claude-haiku-4-5";
+
+function deputyAssignment(
+  deputy: LaboratoryRoomData["agent"],
+  label: string,
+  responsibility: string,
+  provider: "ollama" | "claude",
+  model: string,
+  modelRef: string,
+  mode: "primary" | "cross_check" | "fallback" | "tool" = "primary",
+  local = false,
+) {
+  return {
+    id: `${deputy}-${mode}-${provider}`,
+    deputy,
+    label,
+    provider,
+    model,
+    modelRef,
+    mode,
+    responsibility,
+    local,
+  };
+}
 
 function ollamaDeputy(
   deputy: LaboratoryRoomData["agent"],
@@ -9,17 +35,35 @@ function ollamaDeputy(
   responsibility: string,
   mode: "primary" | "cross_check" | "fallback" | "tool" = "primary",
 ) {
-  return {
-    id: `${deputy}-${mode}-ollama`,
+  return deputyAssignment(
     deputy,
     label,
-    provider: "ollama" as const,
-    model: localOllamaModel,
-    modelRef: localOllamaModelRef,
-    mode,
     responsibility,
-    local: true,
-  };
+    "ollama",
+    localOllamaModel,
+    localOllamaModelRef,
+    mode,
+    true,
+  );
+}
+
+function claudeDeputy(
+  deputy: LaboratoryRoomData["agent"],
+  label: string,
+  responsibility: string,
+  model = claudeSonnetModel,
+  mode: "primary" | "cross_check" | "fallback" | "tool" = "primary",
+) {
+  return deputyAssignment(
+    deputy,
+    label,
+    responsibility,
+    "claude",
+    model,
+    `anthropic-api:${model}`,
+    mode,
+    false,
+  );
 }
 
 const paperSourceConnectors = [
@@ -169,8 +213,8 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     status: "waiting_for_user",
     agent: "leader",
     modelAssignments: [
-      ollamaDeputy("leader", "Leader / PI Deputy", "Final review, approval gates, and re-analysis orders"),
-      ollamaDeputy("coordinator", "Briefing Deputy", "Condense department outputs before Leader review", "cross_check"),
+      claudeDeputy("leader", "Claude Leader / PI Deputy", "Final review, approval gates, and re-analysis orders", claudeOpusModel),
+      ollamaDeputy("coordinator", "Ollama Briefing Deputy", "Condense department outputs before Leader review", "cross_check"),
     ],
     x: 565,
     y: 42,
@@ -186,7 +230,8 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     status: "running",
     agent: "coordinator",
     modelAssignments: [
-      ollamaDeputy("coordinator", "Coordinator Deputy", "Triage tasks, merge department output, and prepare Leader briefs"),
+      ollamaDeputy("coordinator", "Ollama Coordinator Deputy", "Triage tasks, merge department output, and prepare Leader briefs"),
+      claudeDeputy("leader", "Claude Brief QA Deputy", "Check whether a coordinator packet is Leader-ready", claudeSonnetModel, "cross_check"),
     ],
     x: 565,
     y: 292,
@@ -202,7 +247,8 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     status: "running",
     agent: "search",
     modelAssignments: [
-      ollamaDeputy("search", "Search Deputy", "Literature search planning, DOI/PDF candidate triage, and query expansion"),
+      ollamaDeputy("search", "Ollama Search Deputy", "Local paper discovery, DOI/PDF candidate triage, and query expansion"),
+      claudeDeputy("search", "Claude Query Expansion Deputy", "Generate broader literature search angles without touching private PDFs", claudeHaikuModel, "tool"),
     ],
     sourceConnectors: paperSourceConnectors,
     x: 52,
@@ -219,7 +265,8 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     status: "stored_in_library",
     agent: "librarian",
     modelAssignments: [
-      ollamaDeputy("librarian", "Librarian Deputy", "Normalize approved claims, evidence, tags, and reusable records"),
+      ollamaDeputy("librarian", "Ollama Librarian Deputy", "Normalize approved claims, evidence, tags, and reusable records"),
+      claudeDeputy("librarian", "Claude Metadata QA Deputy", "Cross-check library record clarity and reuse boundaries", claudeHaikuModel, "cross_check"),
     ],
     x: 1078,
     y: 292,
@@ -235,7 +282,8 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     status: "running",
     agent: "reader",
     modelAssignments: [
-      ollamaDeputy("reader", "Reader Deputy", "Read papers, extract claims, methods, limitations, and evidence spans"),
+      ollamaDeputy("reader", "Ollama Reader Deputy", "Read local PDFs and extract claims, methods, limitations, and evidence spans"),
+      claudeDeputy("reader", "Claude Claim QA Deputy", "Cross-check extracted claims and limitation framing before debate", claudeSonnetModel, "cross_check"),
     ],
     x: 52,
     y: 570,
@@ -251,12 +299,12 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     status: "debating",
     agent: "critic",
     modelAssignments: [
-      ollamaDeputy("reader", "Reader Deputy", "Present source claims and supporting evidence"),
-      ollamaDeputy("critic", "Critic Deputy", "Attack weak claims, missing controls, statistics, and counter-evidence"),
-      ollamaDeputy("strategist", "Strategist Deputy", "Convert unresolved issues into gaps and hypotheses"),
-      ollamaDeputy("experiment", "Experiment Deputy", "Check feasibility, controls, readouts, and protocol risks"),
-      ollamaDeputy("librarian", "Librarian Deputy", "Record meeting outputs and approved evidence"),
-      ollamaDeputy("leader", "Leader Deputy", "Flag whether the debate needs human or PI approval", "cross_check"),
+      ollamaDeputy("reader", "Ollama Reader Deputy", "Present source claims and supporting evidence"),
+      claudeDeputy("critic", "Claude Critic Deputy", "Attack weak claims, missing controls, statistics, and counter-evidence", claudeSonnetModel),
+      claudeDeputy("strategist", "Claude Strategist Deputy", "Convert unresolved issues into gaps and hypotheses", claudeSonnetModel),
+      claudeDeputy("experiment", "Claude Experiment Deputy", "Check feasibility, controls, readouts, and protocol risks", claudeSonnetModel),
+      ollamaDeputy("librarian", "Ollama Librarian Deputy", "Record meeting outputs and approved evidence"),
+      claudeDeputy("leader", "Claude Leader Review Deputy", "Flag whether the debate needs human or PI approval", claudeOpusModel, "cross_check"),
     ],
     x: 322,
     y: 570,
@@ -272,8 +320,9 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     status: "idle",
     agent: "strategist",
     modelAssignments: [
-      ollamaDeputy("strategist", "Strategist Deputy", "Score research gaps, generate hypotheses, and route ideas"),
-      ollamaDeputy("critic", "Critic Deputy", "Stress-test novelty and evidence strength", "cross_check"),
+      claudeDeputy("strategist", "Claude Strategist Deputy", "Score research gaps, generate hypotheses, and route ideas", claudeSonnetModel),
+      claudeDeputy("critic", "Claude Critic Deputy", "Stress-test novelty and evidence strength", claudeOpusModel, "cross_check"),
+      ollamaDeputy("strategist", "Ollama Strategy Fallback", "Keep a local strategy path available for private or offline work", "fallback"),
     ],
     x: 592,
     y: 570,
@@ -289,8 +338,9 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     status: "queued",
     agent: "experiment",
     modelAssignments: [
-      ollamaDeputy("experiment", "Experiment Deputy", "Design variables, controls, readouts, protocols, and risk checks from literature-grounded strategy"),
-      ollamaDeputy("strategist", "Strategy Deputy", "Translate debate outcomes and hypotheses into experiment strategy", "cross_check"),
+      claudeDeputy("experiment", "Claude Experiment Deputy", "Design variables, controls, readouts, protocols, and risk checks from literature-grounded strategy", claudeSonnetModel),
+      claudeDeputy("strategist", "Claude Strategy Deputy", "Translate debate outcomes and hypotheses into experiment strategy", claudeSonnetModel, "cross_check"),
+      ollamaDeputy("experiment", "Ollama Protocol Fallback", "Keep local protocol drafting available for private or offline work", "fallback"),
     ],
     x: 862,
     y: 570,
@@ -306,8 +356,8 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     status: "queued",
     agent: "writer",
     modelAssignments: [
-      ollamaDeputy("writer", "Writer Deputy", "Draft citation-backed sections without inventing unsupported claims"),
-      ollamaDeputy("librarian", "Citation Deputy", "Verify reusable Library records and citation evidence", "cross_check"),
+      claudeDeputy("writer", "Claude Writer Deputy", "Draft citation-backed sections without inventing unsupported claims", claudeSonnetModel),
+      ollamaDeputy("librarian", "Ollama Citation Deputy", "Verify reusable Library records and citation evidence", "cross_check"),
     ],
     x: 1132,
     y: 570,

@@ -152,7 +152,15 @@ type ControlSettings = {
 
 const controlSettingsStorageKey = "researchdino-control-settings";
 
-const modelOptions = ["local-research-dino", "llama3.1", "mistral", "manual-review"] as const;
+const modelOptions = [
+  "claude-opus-4-8",
+  "claude-sonnet-5",
+  "claude-haiku-4-5",
+  "local-research-dino",
+  "llama3.1",
+  "mistral",
+  "manual-review",
+] as const;
 
 type AgentProfile = {
   mission: string;
@@ -307,7 +315,7 @@ function defaultControlSettings(sourceConnectors: PaperSourceConnector[]): Contr
     autoApproveLowRisk: false,
     maxParallelTasks: 6,
     localInference: true,
-    reasoningModel: "local-research-dino",
+    reasoningModel: "claude-sonnet-5",
     readingModel: "local-research-dino",
   };
 }

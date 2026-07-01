@@ -74,7 +74,7 @@ ApprovalStatus = Literal[
 AgentLogLevel = Literal["info", "debate", "warning", "error", "approval"]
 LeaderDecisionValue = Literal["approved", "rejected", "needs_revision", "stored_in_library"]
 AgentActionValue = Literal["run_reader", "run_debate", "design_experiment", "draft_manuscript"]
-ModelProvider = Literal["ollama", "manual"]
+ModelProvider = Literal["ollama", "claude", "manual"]
 DeputyModelMode = Literal["primary", "cross_check", "fallback", "tool"]
 PaperSourceProvider = Literal[
     "local_pdf",

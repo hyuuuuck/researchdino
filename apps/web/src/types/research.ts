@@ -62,7 +62,7 @@ export type ApprovalStatus =
   | "stored_in_library"
   | "usable_for_writing";
 
-export type ModelProvider = "ollama" | "manual";
+export type ModelProvider = "ollama" | "claude" | "manual";
 export type DeputyModelMode = "primary" | "cross_check" | "fallback" | "tool";
 export type PaperSourceProvider =
   | "local_pdf"

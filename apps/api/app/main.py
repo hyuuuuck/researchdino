@@ -144,8 +144,7 @@ def mode() -> ApiMode:
 def rooms() -> list[LaboratoryRoom]:
     hydrated_rooms = []
     for room in list_json("rooms"):
-        if not room.get("modelAssignments"):
-            room["modelAssignments"] = DEMO_ROOM_MODEL_ASSIGNMENTS.get(room["id"], [])
+        room["modelAssignments"] = DEMO_ROOM_MODEL_ASSIGNMENTS.get(room["id"], room.get("modelAssignments", []))
         if not room.get("sourceConnectors"):
             room["sourceConnectors"] = DEMO_ROOM_SOURCE_CONNECTORS.get(room["id"], [])
         hydrated_rooms.append(LaboratoryRoom(**room))
