@@ -1,4 +1,10 @@
-import type { DeputyModelAssignment, LaboratoryRoomData, Selection, WorkflowCardData } from "../../types/research";
+import type {
+  DeputyModelAssignment,
+  LaboratoryRoomData,
+  PaperSourceConnector,
+  Selection,
+  WorkflowCardData,
+} from "../../types/research";
 import { formatStatusLabel } from "../../lib/format";
 import { DinoAgentAvatar } from "./DinoAgentAvatar";
 import { WorkflowCard } from "./WorkflowCard";
@@ -67,12 +73,53 @@ function ModelAssignmentsSection({ assignments }: { assignments?: DeputyModelAss
   );
 }
 
+function SourceConnectorsSection({ connectors }: { connectors?: PaperSourceConnector[] }) {
+  if (!connectors || connectors.length === 0) return null;
+
+  return (
+    <section className="panel-section">
+      <h3>Paper Source Registry</h3>
+      <div className="source-connector-list">
+        {connectors.map((connector) => (
+          <article
+            className={`source-connector-card${connector.enabled ? "" : " is-disabled"}`}
+            key={connector.id}
+          >
+            <div>
+              <strong>{connector.label}</strong>
+              <span>{connector.scope}</span>
+            </div>
+            <dl>
+              <div>
+                <dt>Provider</dt>
+                <dd>{connector.provider}</dd>
+              </div>
+              <div>
+                <dt>Access</dt>
+                <dd>{connector.access}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd>{connector.enabled ? "enabled" : "not connected"}</dd>
+              </div>
+            </dl>
+            <p>{connector.notes}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function DetailPanel({ selection, rooms, cards, onSelectCard }: DetailPanelProps) {
   if (selection.kind === "card") {
     const card = cards.find((item) => item.id === selection.id);
     if (!card) return null;
     const debateCard = isDebateCard(card);
     const currentRoom = rooms.find((item) => item.id === card.currentRoom);
+    const sourceRoom = rooms.find((item) => item.id === "collection");
+    const cardSourceConnectors =
+      card.type === "paper" ? sourceRoom?.sourceConnectors : currentRoom?.sourceConnectors;
 
     return (
       <aside className="detail-panel" aria-label="Selected card details">
@@ -106,6 +153,7 @@ export function DetailPanel({ selection, rooms, cards, onSelectCard }: DetailPan
           </div>
         </dl>
         <ModelAssignmentsSection assignments={currentRoom?.modelAssignments} />
+        <SourceConnectorsSection connectors={cardSourceConnectors} />
         {debateCard && (
           <>
             <section className="panel-section">
@@ -233,6 +281,7 @@ export function DetailPanel({ selection, rooms, cards, onSelectCard }: DetailPan
         </div>
       </dl>
       <ModelAssignmentsSection assignments={room.modelAssignments} />
+      <SourceConnectorsSection connectors={room.sourceConnectors} />
       {debateCard && (
         <section className="panel-section">
           <h3>Debate Session</h3>

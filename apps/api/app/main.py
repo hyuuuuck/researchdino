@@ -29,6 +29,11 @@ DEMO_ROOM_MODEL_ASSIGNMENTS = {
     for room in DEMO_ROOMS
 }
 
+DEMO_ROOM_SOURCE_CONNECTORS = {
+    room["id"]: room.get("sourceConnectors", [])
+    for room in DEMO_ROOMS
+}
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -72,6 +77,8 @@ def rooms() -> list[LaboratoryRoom]:
     for room in list_json("rooms"):
         if not room.get("modelAssignments"):
             room["modelAssignments"] = DEMO_ROOM_MODEL_ASSIGNMENTS.get(room["id"], [])
+        if not room.get("sourceConnectors"):
+            room["sourceConnectors"] = DEMO_ROOM_SOURCE_CONNECTORS.get(room["id"], [])
         hydrated_rooms.append(LaboratoryRoom(**room))
     return hydrated_rooms
 

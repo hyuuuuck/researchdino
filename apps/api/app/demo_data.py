@@ -16,6 +16,73 @@ def ollama_deputy(deputy, label, responsibility, mode="primary"):
     }
 
 
+PAPER_SOURCE_CONNECTORS = [
+    {
+        "id": "source-local-pdf",
+        "label": "Local PDFs",
+        "provider": "local_pdf",
+        "access": "available",
+        "scope": "User-owned PDF folders and uploaded files",
+        "notes": "No publisher account required; raw files stay local.",
+        "enabled": True,
+    },
+    {
+        "id": "source-doi",
+        "label": "DOI / Manual Metadata",
+        "provider": "doi",
+        "access": "available",
+        "scope": "DOI inputs, manual citation records, and imported metadata candidates",
+        "notes": "Used before publisher-specific full-text access is configured.",
+        "enabled": True,
+    },
+    {
+        "id": "source-crossref",
+        "label": "Crossref",
+        "provider": "crossref",
+        "access": "metadata_only",
+        "scope": "Publisher, DOI, journal, title, author, and citation metadata",
+        "notes": "Metadata enrichment source; not a full-text paper source.",
+        "enabled": True,
+    },
+    {
+        "id": "source-openalex",
+        "label": "OpenAlex",
+        "provider": "openalex",
+        "access": "metadata_only",
+        "scope": "Open scholarly metadata, related works, institutions, and concepts",
+        "notes": "Good for discovery and graph expansion.",
+        "enabled": True,
+    },
+    {
+        "id": "source-nature",
+        "label": "Nature",
+        "provider": "nature",
+        "access": "license_gated",
+        "scope": "Nature Portfolio publisher pages and account-accessible full text",
+        "notes": "Requires user/library access before full-text ingestion.",
+        "enabled": False,
+    },
+    {
+        "id": "source-science",
+        "label": "Science / AAAS",
+        "provider": "science",
+        "access": "license_gated",
+        "scope": "Science family publisher pages and account-accessible full text",
+        "notes": "Requires user/library access before full-text ingestion.",
+        "enabled": False,
+    },
+    {
+        "id": "source-elsevier",
+        "label": "Elsevier / ScienceDirect",
+        "provider": "elsevier",
+        "access": "license_gated",
+        "scope": "Elsevier and ScienceDirect records, abstracts, and account-accessible full text",
+        "notes": "Requires user/library access or API credentials before full-text ingestion.",
+        "enabled": False,
+    },
+]
+
+
 DEMO_ROOMS = [
     {
         "id": "leader",
@@ -60,6 +127,7 @@ DEMO_ROOMS = [
         "modelAssignments": [
             ollama_deputy("search", "Search Deputy", "Literature search planning, DOI/PDF candidate triage, and query expansion"),
         ],
+        "sourceConnectors": PAPER_SOURCE_CONNECTORS,
         "x": 52,
         "y": 292,
         "width": 260,
@@ -140,12 +208,12 @@ DEMO_ROOMS = [
         "id": "experiment",
         "title": "Experiment Bay",
         "shortTitle": "Experiment",
-        "role": "Hypotheses become variables, controls, readouts, protocols, and risks.",
+        "role": "Strategy outputs and debated evidence become variables, controls, readouts, protocols, and risks.",
         "status": "queued",
         "agent": "experiment",
         "modelAssignments": [
-            ollama_deputy("experiment", "Experiment Deputy", "Design variables, controls, readouts, protocols, and risk checks"),
-            ollama_deputy("strategist", "Strategy Deputy", "Keep experiments aligned to hypothesis and gap logic", "cross_check"),
+            ollama_deputy("experiment", "Experiment Deputy", "Design variables, controls, readouts, protocols, and risk checks from literature-grounded strategy"),
+            ollama_deputy("strategist", "Strategy Deputy", "Translate debate outcomes and hypotheses into experiment strategy", "cross_check"),
         ],
         "x": 862,
         "y": 570,
@@ -190,6 +258,8 @@ DEMO_CARDS = [
         "summary": "Demo paper card showing section extraction and claim candidates.",
         "details": {
             "Title": "Autophagy pathway review",
+            "Source type": "Local PDF",
+            "Publisher source candidates": ["Nature", "Science / AAAS", "Elsevier / ScienceDirect"],
             "DOI": "demo-doi-not-fetched",
             "Sections": ["Abstract", "Methods", "Results", "Limitations"],
             "Trace status": "Page-level trace pending",
@@ -310,6 +380,8 @@ DEMO_CARDS = [
         "approvalStatus": "draft",
         "summary": "Early experiment plan card awaiting control and replicate details.",
         "details": {
+            "Strategy source": "Strategy Room hypothesis and debate-resolved gap map",
+            "Evidence basis": "Reader extraction plus Critic/Strategist debate notes",
             "Control": "Vehicle and unstressed control",
             "Readout": "Reporter signal and protein marker",
             "Replicates": "Not finalized",

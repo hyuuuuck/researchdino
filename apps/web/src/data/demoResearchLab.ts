@@ -22,6 +22,72 @@ function ollamaDeputy(
   };
 }
 
+const paperSourceConnectors = [
+  {
+    id: "source-local-pdf",
+    label: "Local PDFs",
+    provider: "local_pdf" as const,
+    access: "available" as const,
+    scope: "User-owned PDF folders and uploaded files",
+    notes: "No publisher account required; raw files stay local.",
+    enabled: true,
+  },
+  {
+    id: "source-doi",
+    label: "DOI / Manual Metadata",
+    provider: "doi" as const,
+    access: "available" as const,
+    scope: "DOI inputs, manual citation records, and imported metadata candidates",
+    notes: "Used before publisher-specific full-text access is configured.",
+    enabled: true,
+  },
+  {
+    id: "source-crossref",
+    label: "Crossref",
+    provider: "crossref" as const,
+    access: "metadata_only" as const,
+    scope: "Publisher, DOI, journal, title, author, and citation metadata",
+    notes: "Metadata enrichment source; not a full-text paper source.",
+    enabled: true,
+  },
+  {
+    id: "source-openalex",
+    label: "OpenAlex",
+    provider: "openalex" as const,
+    access: "metadata_only" as const,
+    scope: "Open scholarly metadata, related works, institutions, and concepts",
+    notes: "Good for discovery and graph expansion.",
+    enabled: true,
+  },
+  {
+    id: "source-nature",
+    label: "Nature",
+    provider: "nature" as const,
+    access: "license_gated" as const,
+    scope: "Nature Portfolio publisher pages and account-accessible full text",
+    notes: "Requires user/library access before full-text ingestion.",
+    enabled: false,
+  },
+  {
+    id: "source-science",
+    label: "Science / AAAS",
+    provider: "science" as const,
+    access: "license_gated" as const,
+    scope: "Science family publisher pages and account-accessible full text",
+    notes: "Requires user/library access before full-text ingestion.",
+    enabled: false,
+  },
+  {
+    id: "source-elsevier",
+    label: "Elsevier / ScienceDirect",
+    provider: "elsevier" as const,
+    access: "license_gated" as const,
+    scope: "Elsevier and ScienceDirect records, abstracts, and account-accessible full text",
+    notes: "Requires user/library access or API credentials before full-text ingestion.",
+    enabled: false,
+  },
+];
+
 export const laboratoryRooms: LaboratoryRoomData[] = [
   {
     id: "leader",
@@ -66,6 +132,7 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     modelAssignments: [
       ollamaDeputy("search", "Search Deputy", "Literature search planning, DOI/PDF candidate triage, and query expansion"),
     ],
+    sourceConnectors: paperSourceConnectors,
     x: 52,
     y: 292,
     width: 260,
@@ -146,12 +213,12 @@ export const laboratoryRooms: LaboratoryRoomData[] = [
     id: "experiment",
     title: "Experiment Bay",
     shortTitle: "Experiment",
-    role: "Hypotheses become variables, controls, readouts, protocols, and risks.",
+    role: "Strategy outputs and debated evidence become variables, controls, readouts, protocols, and risks.",
     status: "queued",
     agent: "experiment",
     modelAssignments: [
-      ollamaDeputy("experiment", "Experiment Deputy", "Design variables, controls, readouts, protocols, and risk checks"),
-      ollamaDeputy("strategist", "Strategy Deputy", "Keep experiments aligned to hypothesis and gap logic", "cross_check"),
+      ollamaDeputy("experiment", "Experiment Deputy", "Design variables, controls, readouts, protocols, and risk checks from literature-grounded strategy"),
+      ollamaDeputy("strategist", "Strategy Deputy", "Translate debate outcomes and hypotheses into experiment strategy", "cross_check"),
     ],
     x: 862,
     y: 570,
@@ -196,6 +263,8 @@ export const initialWorkflowCards: WorkflowCardData[] = [
     summary: "Demo paper card showing section extraction and claim candidates.",
     details: {
       Title: "Autophagy pathway review",
+      "Source type": "Local PDF",
+      "Publisher source candidates": ["Nature", "Science / AAAS", "Elsevier / ScienceDirect"],
       DOI: "demo-doi-not-fetched",
       Sections: ["Abstract", "Methods", "Results", "Limitations"],
       "Trace status": "Page-level trace pending",
@@ -316,6 +385,8 @@ export const initialWorkflowCards: WorkflowCardData[] = [
     approvalStatus: "draft",
     summary: "Early experiment plan card awaiting control and replicate details.",
     details: {
+      "Strategy source": "Strategy Room hypothesis and debate-resolved gap map",
+      "Evidence basis": "Reader extraction plus Critic/Strategist debate notes",
       Control: "Vehicle and unstressed control",
       Readout: "Reporter signal and protein marker",
       Replicates: "Not finalized",

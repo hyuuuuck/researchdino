@@ -72,6 +72,9 @@ are presentation outputs derived from the durable objects.
 
 - Stores title, authors, DOI, journal, publisher, abstract, keywords, and
   external identifiers such as PMID or arXiv id when available.
+- Stores source records for local PDFs, DOI/metadata lookups, and
+  license-gated publisher sources such as Nature, Science / AAAS, and
+  Elsevier / ScienceDirect.
 
 `PaperSection`
 

@@ -73,6 +73,19 @@ AgentLogLevel = Literal["info", "debate", "warning", "error", "approval"]
 LeaderDecisionValue = Literal["approved", "rejected", "needs_revision", "stored_in_library"]
 ModelProvider = Literal["ollama", "manual"]
 DeputyModelMode = Literal["primary", "cross_check", "fallback", "tool"]
+PaperSourceProvider = Literal[
+    "local_pdf",
+    "doi",
+    "crossref",
+    "openalex",
+    "pubmed",
+    "arxiv",
+    "semantic_scholar",
+    "nature",
+    "science",
+    "elsevier",
+]
+PaperSourceAccess = Literal["available", "metadata_only", "needs_account", "license_gated"]
 
 
 class RoomMetrics(BaseModel):
@@ -93,6 +106,16 @@ class DeputyModelAssignment(BaseModel):
     local: bool
 
 
+class PaperSourceConnector(BaseModel):
+    id: str
+    label: str
+    provider: PaperSourceProvider
+    access: PaperSourceAccess
+    scope: str
+    notes: str
+    enabled: bool
+
+
 class LaboratoryRoom(BaseModel):
     id: RoomId
     title: str
@@ -101,6 +124,7 @@ class LaboratoryRoom(BaseModel):
     status: WorkflowStatus
     agent: AgentVariant
     modelAssignments: list[DeputyModelAssignment] = Field(default_factory=list)
+    sourceConnectors: list[PaperSourceConnector] = Field(default_factory=list)
     x: int
     y: int
     width: int

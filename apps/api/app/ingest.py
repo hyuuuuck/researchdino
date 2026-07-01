@@ -143,6 +143,8 @@ def card_from_paper_record(record: dict[str, Any]) -> dict[str, Any]:
         "summary": summary_for_record(record),
         "details": {
             "File": record["fileName"],
+            "Source type": "Local PDF",
+            "Source provider": "local_pdf",
             "Path": record["path"],
             "Size bytes": record["sizeBytes"],
             "SHA-256": record["sha256"] or "not available",

@@ -999,12 +999,14 @@ button {
   font-size: 13px;
 }
 
-.deputy-model-list {
+.deputy-model-list,
+.source-connector-list {
   display: grid;
   gap: 8px;
 }
 
-.deputy-model-card {
+.deputy-model-card,
+.source-connector-card {
   display: grid;
   gap: 8px;
   border: 2px solid var(--line);
@@ -1012,30 +1014,50 @@ button {
   padding: 10px;
 }
 
-.deputy-model-card > div {
+.source-connector-card.is-disabled {
+  background:
+    repeating-linear-gradient(135deg, transparent, transparent 7px, rgba(23, 20, 22, 0.05) 7px, rgba(23, 20, 22, 0.05) 14px),
+    #fff;
+}
+
+.deputy-model-card > div,
+.source-connector-card > div {
   display: grid;
   gap: 3px;
 }
 
-.deputy-model-card strong {
+.deputy-model-card strong,
+.source-connector-card strong {
   font-size: 13px;
   line-height: 1.1;
 }
 
-.deputy-model-card span {
+.deputy-model-card span,
+.source-connector-card span,
+.source-connector-card p {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.25;
 }
 
-.deputy-model-card dl {
+.source-connector-card p {
+  margin: 0;
+}
+
+.deputy-model-card dl,
+.source-connector-card dl {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin: 0;
 }
 
-.deputy-model-card dt {
+.deputy-model-card dl {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.deputy-model-card dt,
+.source-connector-card dt {
   color: var(--muted);
   font-size: 9px;
   font-weight: 900;
@@ -1043,7 +1065,8 @@ button {
   text-transform: uppercase;
 }
 
-.deputy-model-card dd {
+.deputy-model-card dd,
+.source-connector-card dd {
   min-width: 0;
   margin: 2px 0 0;
   overflow: hidden;

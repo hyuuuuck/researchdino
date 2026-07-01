@@ -1,4 +1,11 @@
-import type { AgentVariant, ApprovalStatus, CardType, RoomId, WorkflowStatus } from "./research";
+import type {
+  AgentVariant,
+  ApprovalStatus,
+  CardType,
+  PaperSourceProvider,
+  RoomId,
+  WorkflowStatus,
+} from "./research";
 
 export type EntityId = string;
 export type ISODateTime = string;
@@ -31,6 +38,21 @@ export interface LocalFileReference {
   lastScannedAt?: ISODateTime;
 }
 
+export type PaperAccessStatus =
+  | "local"
+  | "metadata_only"
+  | "license_gated"
+  | "account_connected"
+  | "unavailable";
+
+export interface PaperSourceRecord {
+  provider: PaperSourceProvider;
+  sourceId?: string;
+  url?: string;
+  accessStatus: PaperAccessStatus;
+  retrievedAt?: ISODateTime;
+}
+
 export interface PaperMetadata {
   title: string;
   authors: string[];
@@ -43,6 +65,7 @@ export interface PaperMetadata {
   url?: string;
   abstract?: string;
   keywords: string[];
+  sources: PaperSourceRecord[];
 }
 
 export interface Paper {

@@ -30,7 +30,7 @@ finishes, changes scope, or reveals a blocker.
 - `[ ]` M6: Debate + Leader Gate
 - `[ ]` M7: Library + Retrieval
 - `[ ]` M8: Strategy / Experiment / Writing Studio
-- `[ ]` M9: External Metadata / Publisher Integration
+- `[~]` M9: External Metadata / Publisher Integration
 
 ## M0: Project Seed
 
@@ -81,6 +81,7 @@ before attaching real PDF or agent pipelines.
 - `[x]` Replace rough Debate Room sketch with the provided line-art Debate Room asset and wire it to live debate card data.
 - `[x]` Add three line-art activity scene types each for Reading Bench, Debate Room, Strategy Room, and Experiment Bay.
 - `[x]` Reframe the first viewport as a ResearchDino OS dashboard with sidebar navigation, top controls, system health, map legend, and global queue.
+- `[x]` Clarify the Debate -> Strategy -> Experiment Bay handoff as an active literature-grounded experiment strategy flow.
 - `[x]` Document the UI component contract for backend integration.
 
 Current verification:
@@ -102,6 +103,7 @@ Current verification:
 - Chrome headless desktop screenshot inspected at `1500x2300` after Debate Room reference-asset pass.
 - Chrome headless desktop screenshot inspected at `1500x3000` after four-room scene type gallery pass.
 - Chrome headless desktop screenshot inspected at `1680x1300` after ResearchDino OS dashboard pass.
+- Chrome headless desktop screenshot inspected at `1680x1300` after activating the Experiment Strategy handoff.
 - `npm.cmd run build`: passed after room scene type gallery pass.
 - `npm.cmd run build`: passed after ResearchDino OS dashboard pass.
 - UI component contract documented in `docs/ui-component-contract.md`.
@@ -131,6 +133,7 @@ Library storage, and future PDF/agent work.
 - `[x]` Mark which entities require user approval before reuse.
 - `[x]` Decide which types live in frontend only, backend only, or shared package.
 - `[x]` Add Ollama deputy model assignment fields for room-level agent orchestration.
+- `[x]` Add paper source records for local PDFs, DOI/metadata sources, and license-gated publishers.
 
 Verification:
 
@@ -140,6 +143,7 @@ Verification:
 - Decision: do not introduce `packages/shared` until FastAPI schemas exist.
 - `npm.cmd run build`: passed after domain type additions.
 - `npm.cmd run build` and `python -m compileall .\apps\api\app` passed after Ollama deputy assignment additions.
+- `npm.cmd run build` and `python -m compileall .\apps\api\app` passed after paper source registry additions.
 
 ## M3: Local Backend MVP
 
@@ -262,7 +266,7 @@ Goal: turn approved Library knowledge into research outputs.
 
 ## M9: External Metadata / Publisher Integration
 
-Status: Not started.
+Status: In progress. Source registry scaffold is done; actual publisher/API ingestion is not implemented yet.
 
 Goal: enrich local paper records using official and license-compliant sources.
 
@@ -271,6 +275,8 @@ Goal: enrich local paper records using official and license-compliant sources.
 - `[ ]` Add PubMed metadata lookup where relevant.
 - `[ ]` Add arXiv lookup where relevant.
 - `[ ]` Add Semantic Scholar lookup where appropriate.
+- `[x]` Add source registry scaffold for Local PDFs, DOI/manual metadata, Crossref, OpenAlex, Nature, Science / AAAS, and Elsevier / ScienceDirect.
+- `[x]` Mark Nature, Science / AAAS, and Elsevier / ScienceDirect as license-gated until account/API access is configured.
 - `[ ]` Document required API keys and rate limits.
 - `[ ]` Treat Elsevier, Science, AAAS, Nature, and other full-text integrations as license-gated.
 - `[ ]` Never hardcode API keys.

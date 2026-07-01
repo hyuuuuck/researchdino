@@ -26,6 +26,8 @@ collections from API endpoints or a client data adapter.
 - `role`: one-sentence room purpose.
 - `status`: current room state.
 - `agent`: primary agent avatar variant.
+- `modelAssignments`: optional Ollama deputy/model assignment list for agent orchestration.
+- `sourceConnectors`: optional paper source registry. Search Dock uses this to show local PDFs, DOI/manual metadata, metadata sources, and license-gated publisher sources such as Nature, Science / AAAS, and Elsevier / ScienceDirect.
 - `x`, `y`, `width`, `height`: map placement values. These are UI-owned.
 - `metrics.active`, `metrics.waiting`, `metrics.complete`: counts shown in the room and detail panel.
 

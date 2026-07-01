@@ -61,6 +61,18 @@ export type ApprovalStatus =
 
 export type ModelProvider = "ollama" | "manual";
 export type DeputyModelMode = "primary" | "cross_check" | "fallback" | "tool";
+export type PaperSourceProvider =
+  | "local_pdf"
+  | "doi"
+  | "crossref"
+  | "openalex"
+  | "pubmed"
+  | "arxiv"
+  | "semantic_scholar"
+  | "nature"
+  | "science"
+  | "elsevier";
+export type PaperSourceAccess = "available" | "metadata_only" | "needs_account" | "license_gated";
 
 export interface DeputyModelAssignment {
   id: string;
@@ -74,6 +86,16 @@ export interface DeputyModelAssignment {
   local: boolean;
 }
 
+export interface PaperSourceConnector {
+  id: string;
+  label: string;
+  provider: PaperSourceProvider;
+  access: PaperSourceAccess;
+  scope: string;
+  notes: string;
+  enabled: boolean;
+}
+
 export interface LaboratoryRoomData {
   id: RoomId;
   title: string;
@@ -82,6 +104,7 @@ export interface LaboratoryRoomData {
   status: WorkflowStatus;
   agent: AgentVariant;
   modelAssignments?: DeputyModelAssignment[];
+  sourceConnectors?: PaperSourceConnector[];
   x: number;
   y: number;
   width: number;
