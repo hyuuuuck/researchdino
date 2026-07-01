@@ -4420,14 +4420,36 @@ button {
   overflow: hidden;
 }
 
+.rdos-library-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 18px;
+  align-items: start;
+}
+
 .rdos-library-row {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto auto;
   gap: 12px;
   align-items: center;
+  width: 100%;
   border: 0;
   border-bottom: 1px solid #ededed;
   border-radius: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.rdos-library-row:hover,
+.rdos-library-row.is-selected {
+  background: #f8f8f8;
+}
+
+.rdos-library-row.is-selected {
+  box-shadow: inset 4px 0 0 #1a1719;
 }
 
 .rdos-library-row:last-child {
@@ -4440,6 +4462,108 @@ button {
   border-radius: 9px;
   background: #f7f7f7;
   padding: 8px;
+}
+
+.rdos-library-empty {
+  display: grid;
+  gap: 4px;
+  padding: 22px;
+}
+
+.rdos-library-empty span {
+  color: #777;
+  font-size: 12px;
+}
+
+.rdos-library-detail {
+  border: 1px solid #1a1719;
+  border-radius: 14px;
+  background: #fff;
+  padding: 18px;
+  min-height: 320px;
+}
+
+.rdos-library-detail header {
+  border-bottom: 1px solid #e3e3e3;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+}
+
+.rdos-library-detail header span,
+.rdos-library-detail-block h4 {
+  color: #777;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.rdos-library-detail h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.rdos-library-detail p {
+  color: #666;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+
+.rdos-metadata-grid,
+.rdos-library-detail-block dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.rdos-metadata-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rdos-metadata-grid div,
+.rdos-library-detail-block dl div {
+  border: 1px solid #ededed;
+  border-radius: 10px;
+  padding: 9px 10px;
+  min-width: 0;
+}
+
+.rdos-metadata-grid dt,
+.rdos-library-detail-block dt {
+  color: #888;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.rdos-metadata-grid dd,
+.rdos-library-detail-block dd {
+  color: #1a1719;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.rdos-library-detail-block {
+  border-top: 1px solid #e3e3e3;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.rdos-library-detail-block ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.rdos-library-detail-block li + li {
+  margin-top: 4px;
 }
 
 .rdos-feature-card {

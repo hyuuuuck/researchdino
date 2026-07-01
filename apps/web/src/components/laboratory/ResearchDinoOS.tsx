@@ -418,7 +418,7 @@ export function ResearchDinoOS() {
             )}
             {screen === "report" && <ManuscriptScreen card={firstCard(projectCards, (card) => card.type === "manuscript")} project={activeProject} />}
             {screen === "agents" && <AgentsScreen rooms={rooms} cards={projectCards} />}
-            {screen === "library" && <LibraryScreen cards={libraryCards} allCards={projectCards} />}
+            {screen === "library" && <LibraryScreen project={activeProject} cards={libraryCards} allCards={projectCards} />}
             {screen === "reports" && (
               <ReportsScreen
                 project={activeProject}
@@ -889,24 +889,171 @@ function AgentsScreen({ rooms, cards }: { rooms: LaboratoryRoomData[]; cards: Wo
   );
 }
 
-function LibraryScreen({ cards, allCards }: { cards: WorkflowCardData[]; allCards: WorkflowCardData[] }) {
-  const rows = cards.length > 0 ? cards : allCards.slice(0, 7);
+function detailValueText(value: WorkflowCardData["details"][string]) {
+  return Array.isArray(value) ? value.join(", ") : String(value);
+}
+
+function detailSourceValue(card: WorkflowCardData | undefined, key: string) {
+  const value = card?.details[key];
+  return value === undefined ? undefined : detailValueText(value);
+}
+
+function LibraryScreen({
+  project,
+  cards,
+  allCards,
+}: {
+  project?: ResearchProjectData;
+  cards: WorkflowCardData[];
+  allCards: WorkflowCardData[];
+}) {
+  const [query, setQuery] = useState("");
+  const baseRows = cards.length > 0 ? cards : allCards.filter((card) => completeStatuses.has(card.status)).slice(0, 7);
+  const rows = baseRows.filter((card) => {
+    const sourceCard = card.sourcePaperId ? allCards.find((candidate) => candidate.id === card.sourcePaperId) : undefined;
+    const haystack = [
+      card.title,
+      card.summary,
+      card.type,
+      card.status,
+      card.approvalStatus,
+      sourceCard?.title,
+      ...Object.values(card.details).map(detailValueText),
+      ...Object.values(sourceCard?.details ?? {}).map(detailValueText),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(query.trim().toLowerCase());
+  });
+  const [selectedId, setSelectedId] = useState<string>();
+  const selectedCard = rows.find((card) => card.id === selectedId) ?? rows[0];
+  const sourceCard = selectedCard?.sourcePaperId
+    ? allCards.find((card) => card.id === selectedCard.sourcePaperId)
+    : undefined;
+  const sourceType = detailSourceValue(sourceCard, "Source type") ?? detailSourceValue(selectedCard, "Source type") ?? "Workflow card";
+  const doi = detailSourceValue(sourceCard, "DOI") ?? detailSourceValue(selectedCard, "DOI") ?? "not recorded";
+  const publisherCandidates =
+    detailSourceValue(sourceCard, "Publisher source candidates") ??
+    detailSourceValue(selectedCard, "Publisher source candidates") ??
+    "not mapped";
+  const storedCount = baseRows.filter((card) => card.status === "stored_in_library").length;
+  const evidenceCount = baseRows.reduce((total, card) => total + card.evidenceCount, 0);
+  const reviewCount = baseRows.filter((card) => card.requiresUserReview).length;
+
   return (
     <section>
-      <ScreenHeader eyebrow="Library" title="Knowledge Library" meta={<input className="rdos-search-input" placeholder="Search approved papers, claims, evidence..." />} />
-      <div className="rdos-filter-row"><b>All · 42</b><span>Read · 18</span><span>Reading · 6</span><span>Queued · 18</span></div>
-      <div className="rdos-library-list">
-        {rows.map((card, index) => (
-          <article className="rdos-library-row" key={card.id}>
-            <Icon name="book" />
-            <div>
-              <strong>{card.title}</strong>
-              <span>Smith et al. · {index % 2 ? "Science" : "Nature"} · 2023</span>
-            </div>
-            <b>{card.type.replace(/_/g, " ")}</b>
-            <em className={card.status === "running" ? "is-live" : ""}>{displayStatus(card.status)}</em>
-          </article>
-        ))}
+      <ScreenHeader
+        eyebrow="Library"
+        title="Knowledge Library"
+        meta={
+          <input
+            className="rdos-search-input"
+            placeholder="Search approved papers, claims, evidence..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        }
+      />
+      <div className="rdos-filter-row">
+        <b>All {baseRows.length}</b>
+        <span>Stored {storedCount}</span>
+        <span>Evidence {evidenceCount}</span>
+        <span>Review {reviewCount}</span>
+      </div>
+      <div className="rdos-library-workspace">
+        <div className="rdos-library-list">
+          {rows.map((card) => {
+            const rowSource = card.sourcePaperId ? allCards.find((candidate) => candidate.id === card.sourcePaperId) : undefined;
+            const rowSourceType = detailSourceValue(rowSource, "Source type") ?? detailSourceValue(card, "Source type") ?? "Workflow card";
+            return (
+              <button
+                className={`rdos-library-row${selectedCard?.id === card.id ? " is-selected" : ""}`}
+                key={card.id}
+                type="button"
+                onClick={() => setSelectedId(card.id)}
+              >
+                <Icon name="book" />
+                <div>
+                  <strong>{card.title}</strong>
+                  <span>{rowSource?.title ?? project?.sourceNote ?? "No source linked"} | {rowSourceType} | {card.evidenceCount} evidence</span>
+                </div>
+                <b>{card.type.replace(/_/g, " ")}</b>
+                <em className={card.status === "running" ? "is-live" : ""}>{displayStatus(card.status)}</em>
+              </button>
+            );
+          })}
+          {rows.length === 0 && (
+            <article className="rdos-library-empty">
+              <strong>No matching library records</strong>
+              <span>Try another title, claim, source, DOI, or evidence term.</span>
+            </article>
+          )}
+        </div>
+
+        <aside className="rdos-library-detail">
+          {selectedCard ? (
+            <>
+              <header>
+                <span>Metadata</span>
+                <h3>{selectedCard.title}</h3>
+                <p>{selectedCard.summary}</p>
+              </header>
+              <dl className="rdos-metadata-grid">
+                <div><dt>Project</dt><dd>{project?.title ?? selectedCard.projectId}</dd></div>
+                <div><dt>Record ID</dt><dd>{selectedCard.id}</dd></div>
+                <div><dt>Source Paper</dt><dd>{sourceCard?.title ?? selectedCard.sourcePaperId ?? "not linked"}</dd></div>
+                <div><dt>Source Type</dt><dd>{sourceType}</dd></div>
+                <div><dt>DOI</dt><dd>{doi}</dd></div>
+                <div><dt>Publisher Sources</dt><dd>{publisherCandidates}</dd></div>
+                <div><dt>Evidence Links</dt><dd>{selectedCard.evidenceCount}</dd></div>
+                <div><dt>Approval</dt><dd>{displayStatus(selectedCard.approvalStatus)}</dd></div>
+                <div><dt>Status</dt><dd>{displayStatus(selectedCard.status)}</dd></div>
+                <div><dt>Last Updated</dt><dd>{selectedCard.lastUpdated}</dd></div>
+              </dl>
+
+              <section className="rdos-library-detail-block">
+                <h4>Stored Details</h4>
+                {Object.entries(selectedCard.details).length > 0 ? (
+                  <dl>
+                    {Object.entries(selectedCard.details).map(([key, value]) => (
+                      <div key={key}>
+                        <dt>{key}</dt>
+                        <dd>
+                          {Array.isArray(value) ? (
+                            <ul>
+                              {value.map((item) => <li key={item}>{item}</li>)}
+                            </ul>
+                          ) : (
+                            value
+                          )}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p>No stored detail fields yet.</p>
+                )}
+              </section>
+
+              {sourceCard && sourceCard.id !== selectedCard.id && (
+                <section className="rdos-library-detail-block">
+                  <h4>Source Trace</h4>
+                  <p>{sourceCard.summary}</p>
+                  <dl>
+                    {Object.entries(sourceCard.details).slice(0, 6).map(([key, value]) => (
+                      <div key={key}>
+                        <dt>{key}</dt>
+                        <dd>{Array.isArray(value) ? value.join(", ") : value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              )}
+            </>
+          ) : (
+            <p>Select a stored card to inspect metadata.</p>
+          )}
+        </aside>
       </div>
     </section>
   );
