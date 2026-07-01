@@ -4476,6 +4476,80 @@ button {
   color: #fff;
 }
 
+.rdos-source-panel {
+  grid-column: 1 / -1;
+}
+
+.rdos-source-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.rdos-source-row {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  border: 1px solid #e3e3e3;
+  border-radius: 12px;
+  background: #fafafa;
+  padding: 10px;
+}
+
+.rdos-source-row.is-enabled {
+  border-color: #1a1719;
+  background: #fff;
+}
+
+.rdos-source-row strong {
+  display: block;
+  color: #1a1719;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rdos-source-row span,
+.rdos-source-row p {
+  color: #6b6b6b;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.rdos-source-row p {
+  margin: 0;
+}
+
+.rdos-source-row dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.rdos-source-row dl div {
+  border: 1px solid #ededed;
+  border-radius: 9px;
+  background: #fff;
+  padding: 6px 7px;
+}
+
+.rdos-source-row dt {
+  color: #a6a6a6;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rdos-source-row dd {
+  margin: 2px 0 0;
+  color: #1a1719;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
 .rdos-toggle-row {
   display: flex;
   justify-content: space-between;

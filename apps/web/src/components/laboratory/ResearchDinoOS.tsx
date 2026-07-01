@@ -12,7 +12,14 @@ import {
   type ResearchDataMode,
   type ResearchLabState,
 } from "../../api/researchApi";
-import type { AgentLogEntry, AgentVariant, LaboratoryRoomData, RoomId, WorkflowCardData } from "../../types/research";
+import type {
+  AgentLogEntry,
+  AgentVariant,
+  LaboratoryRoomData,
+  PaperSourceConnector,
+  RoomId,
+  WorkflowCardData,
+} from "../../types/research";
 
 type ScreenId = "map" | "debate" | "reader" | "report" | "agents" | "library" | "reports" | "projects" | "tasks" | "settings";
 
@@ -393,6 +400,7 @@ export function ResearchDinoOS() {
             {screen === "settings" && (
               <SettingsScreen
                 dataMode={dataMode}
+                sourceConnectors={rooms.find((room) => room.id === "collection")?.sourceConnectors ?? []}
                 ingestPath={ingestPath}
                 ingestResult={ingestResult}
                 busy={busyAction === "ingest"}
@@ -894,6 +902,7 @@ function TasksScreen({ cards }: { cards: WorkflowCardData[] }) {
 
 function SettingsScreen({
   dataMode,
+  sourceConnectors,
   ingestPath,
   ingestResult,
   busy,
@@ -901,6 +910,7 @@ function SettingsScreen({
   onSubmit,
 }: {
   dataMode: ResearchDataMode;
+  sourceConnectors: PaperSourceConnector[];
   ingestPath: string;
   ingestResult?: IngestScanResult;
   busy: boolean;
@@ -911,15 +921,19 @@ function SettingsScreen({
     <section>
       <ScreenHeader eyebrow="Settings" title="ResearchDino Controls" meta={<button className="rdos-primary-action" type="button">Save Changes</button>} />
       <div className="rdos-settings-grid">
+        <article className="rdos-panel rdos-source-panel">
+          <span className="rdos-eyebrow">Paper Sources</span>
+          <div className="rdos-source-list">
+            {sourceConnectors.map((connector) => (
+              <SourceConnectorRow connector={connector} key={connector.id} />
+            ))}
+          </div>
+        </article>
         <article className="rdos-panel">
           <span className="rdos-eyebrow">Autonomy</span>
           <div className="rdos-segment"><button>Manual</button><button className="is-active">Assisted</button><button>Auto</button></div>
           <Toggle label="Auto-approve low-risk claims" active={false} />
           <label className="rdos-range">Max parallel tasks <input type="range" min="1" max="9" defaultValue="6" /></label>
-        </article>
-        <article className="rdos-panel">
-          <span className="rdos-eyebrow">Paper Sources</span>
-          {["arXiv", "bioRxiv", "PubMed", "Semantic Scholar"].map((label, index) => <Toggle key={label} label={label} active={index < 3} />)}
         </article>
         <article className="rdos-panel">
           <span className="rdos-eyebrow">Models</span>
@@ -946,6 +960,29 @@ function SettingsScreen({
         </article>
       </div>
     </section>
+  );
+}
+
+function SourceConnectorRow({ connector }: { connector: PaperSourceConnector }) {
+  const status = connector.enabled ? "Connected" : connector.access === "license_gated" ? "Needs account" : "Not connected";
+  return (
+    <div className={`rdos-source-row${connector.enabled ? " is-enabled" : ""}`}>
+      <div>
+        <strong>{connector.label}</strong>
+        <span>{connector.scope}</span>
+      </div>
+      <dl>
+        <div>
+          <dt>Access</dt>
+          <dd>{connector.access.replace(/_/g, " ")}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{status}</dd>
+        </div>
+      </dl>
+      <p>{connector.notes}</p>
+    </div>
   );
 }
 
