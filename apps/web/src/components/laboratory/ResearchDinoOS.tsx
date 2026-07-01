@@ -429,21 +429,28 @@ function MapScreen({
         <svg className="rdos-map-flow" viewBox="0 0 1300 685" aria-hidden="true">
           <defs>
             <marker id="rdos-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
-              <path d="M0 0L9 4.5L0 9" fill="#c8c8c8" />
-            </marker>
+              <path className="rdos-arrow-shape" d="M0 0L9 4.5L0 9" fill="#c8c8c8" />
+              </marker>
             <marker id="rdos-arrow-live" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
-              <path d="M0 0L9 4.5L0 9" fill="#2f7d5f" />
+              <path className="rdos-arrow-shape" d="M0 0L9 4.5L0 9" fill="#2f7d5f" />
             </marker>
           </defs>
-          <FlowPath from="leader" to="coordinator" live layout={layoutLookup} />
-          <FlowPath from="coordinator" to="collection" live layout={layoutLookup} />
-          <FlowPath from="collection" to="reading" live layout={layoutLookup} />
-          <FlowPath from="reading" to="debate" live layout={layoutLookup} />
-          <FlowPath from="debate" to="strategy" layout={layoutLookup} />
-          <FlowPath from="strategy" to="experiment" layout={layoutLookup} />
-          <FlowPath from="strategy" to="writing" layout={layoutLookup} />
-          <FlowPath from="coordinator" to="library" layout={layoutLookup} />
-          <FlowPath from="library" to="writing" layout={layoutLookup} dotted />
+          <ManualFlow d="M580 198V252" live kind="directive" label="L1 Directive" x={602} y={224} />
+          <ManualFlow d="M650 252V198" kind="brief" label="R1 Brief" x={671} y={224} />
+          <ManualFlow d="M420 343C342 343 332 322 271 322" live kind="task" label="T1 Search Task" x={323} y={318} />
+          <ManualFlow d="M585 434V468H150V494" kind="task" label="Task Fanout" x={452} y={464} />
+          <ManualFlow d="M585 468H438V494" kind="task" />
+          <ManualFlow d="M585 468H703V494" kind="task" />
+          <ManualFlow d="M585 468H968V494" kind="task" />
+          <ManualFlow d="M585 468H1205V494" kind="task" />
+          <ManualFlow d="M144 416V494" live kind="data" label="C1 Search-Read" x={161} y={456} />
+          <ManualFlow d="M274 580H315" live kind="data" label="C2 Reader-Critic" x={322} y={480} />
+          <ManualFlow d="M560 580H580" live kind="data" label="C3 Critic-Strategy" x={580} y={480} />
+          <ManualFlow d="M825 580H845" live kind="data" label="C4 Strategy-Experiment" x={838} y={480} />
+          <ManualFlow d="M703 666C772 684 1060 684 1205 666" kind="data" label="C5 Strategy/Reader -> Writer" x={882} y={674} />
+          <ManualFlow d="M730 122H805V210H1015V278" kind="store" label="A1 Approved Store" x={912} y={210} />
+          <ManualFlow d="M1157 422V494" kind="store" label="K2 Library -> Writing" x={1174} y={456} />
+          <ManualFlow d="M1015 354C918 393 812 444 703 494" kind="store" label="K1 Library -> Strategy" x={845} y={410} />
         </svg>
 
         <MapInfoCards stats={stats} />
@@ -533,32 +540,36 @@ function RoomNode({
   );
 }
 
-function FlowPath({
-  from,
-  to,
-  layout,
+function ManualFlow({
+  d,
   live = false,
-  dotted = false,
+  kind,
+  label,
+  x = 0,
+  y = 0,
 }: {
-  from: RoomId;
-  to: RoomId;
-  layout: Map<RoomId, (typeof roomLayout)[number]>;
+  d: string;
   live?: boolean;
-  dotted?: boolean;
+  kind: "brief" | "data" | "directive" | "store" | "task";
+  label?: string;
+  x?: number;
+  y?: number;
 }) {
-  const a = layout.get(from);
-  const b = layout.get(to);
-  if (!a || !b) return null;
-  const x1 = a.x + a.w / 2;
-  const y1 = a.y + a.h / 2;
-  const x2 = b.x + b.w / 2;
-  const y2 = b.y + b.h / 2;
+  const labelWidth = label ? Math.max(82, label.length * 7 + 22) : 0;
   return (
-    <path
-      className={`${live ? "is-live" : ""} ${dotted ? "is-dotted" : ""}`}
-      d={`M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`}
-      markerEnd={live ? "url(#rdos-arrow-live)" : "url(#rdos-arrow)"}
-    />
+    <g className={`rdos-flow-group rdos-flow-group--${kind}${live ? " is-live" : ""}`}>
+      <path
+        className={`rdos-flow-line rdos-flow-line--${kind}${live ? " is-live" : ""}`}
+        d={d}
+        markerEnd={live ? "url(#rdos-arrow-live)" : "url(#rdos-arrow)"}
+      />
+      {label && (
+        <g className="rdos-flow-label" transform={`translate(${x} ${y})`}>
+          <rect x={-labelWidth / 2} y={-11} width={labelWidth} height={22} rx={11} />
+          <text x="0" y="4" textAnchor="middle">{label}</text>
+        </g>
+      )}
+    </g>
   );
 }
 

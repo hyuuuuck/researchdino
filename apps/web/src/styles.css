@@ -3415,21 +3415,69 @@ button {
   overflow: visible;
 }
 
-.rdos-map-flow path {
+.rdos-map-flow .rdos-arrow-shape {
+  stroke: none;
+  stroke-dasharray: none;
+}
+
+.rdos-map-flow .rdos-flow-line {
   fill: none;
   stroke: #c8c8c8;
   stroke-width: 1.8;
-  stroke-dasharray: 9 8;
 }
 
-.rdos-map-flow path.is-live {
+.rdos-map-flow .rdos-flow-line--directive {
+  stroke: #1a1719;
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
+
+.rdos-map-flow .rdos-flow-line--brief {
+  stroke-dasharray: 6 6;
+}
+
+.rdos-map-flow .rdos-flow-line--task {
+  stroke: #bfc4c1;
+  stroke-dasharray: 9 9;
+}
+
+.rdos-map-flow .rdos-flow-line--data {
+  stroke-dasharray: 12 8;
+}
+
+.rdos-map-flow .rdos-flow-line--store {
+  stroke: #bdbdbd;
+  stroke-dasharray: 2 7;
+}
+
+.rdos-map-flow .rdos-flow-line.is-live {
   stroke: #2f7d5f;
   stroke-width: 2.2;
   animation: rdos-flow 1.2s linear infinite;
 }
 
-.rdos-map-flow path.is-dotted {
-  stroke-dasharray: 2 7;
+.rdos-flow-label rect {
+  fill: rgba(255, 255, 255, 0.92);
+  stroke: #dcdcdc;
+  stroke-width: 1;
+}
+
+.rdos-flow-label text {
+  fill: #6b6b6b;
+  font-family: "Hanken Grotesk", Inter, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.rdos-flow-group.is-live .rdos-flow-label rect {
+  fill: #eef7f3;
+  stroke: #2f7d5f;
+}
+
+.rdos-flow-group.is-live .rdos-flow-label text {
+  fill: #2f7d5f;
 }
 
 .rdos-room-node {
