@@ -1076,6 +1076,42 @@ button {
   font-weight: 900;
 }
 
+.agent-action-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.agent-action-list button {
+  min-height: 38px;
+  border: 2px solid var(--line);
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--line);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.agent-action-list button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: var(--soft);
+  box-shadow: none;
+}
+
+.agent-action-list button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--line);
+}
+
+.agent-action-message {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
 .empty-note {
   margin: 0;
   color: var(--muted);

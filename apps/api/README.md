@@ -33,3 +33,15 @@ npm run dev
 ```
 
 Without `VITE_API_BASE_URL`, the web app stays in explicit demo mode.
+
+## Agent Action Scaffold
+
+The MVP exposes `POST /agent-actions` for local deterministic workflow actions:
+
+- `run_reader`: move a Paper Card into Reading Bench and create a Debate Room card.
+- `run_debate`: consolidate debate outputs, route the card to Leader Office, and create Strategy / Experiment follow-up cards.
+- `design_experiment`: create an Experiment Bay protocol skeleton from a hypothesis.
+- `draft_manuscript`: create a Writing Studio outline from an approved source card.
+
+These actions do not call an LLM yet. They create traceable workflow state so
+Ollama or remote model deputies can be wired into the same action boundary later.

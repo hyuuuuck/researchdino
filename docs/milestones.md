@@ -26,8 +26,8 @@ finishes, changes scope, or reveals a blocker.
 - `[x]` M2: Workflow State Model
 - `[x]` M3: Local Backend MVP
 - `[~]` M4: Local PDF Ingest MVP
-- `[ ]` M5: Reader Agent Pipeline
-- `[ ]` M6: Debate + Leader Gate
+- `[~]` M5: Reader Agent Pipeline
+- `[~]` M6: Debate + Leader Gate
 - `[ ]` M7: Library + Retrieval
 - `[ ]` M8: Strategy / Experiment / Writing Studio
 - `[~]` M9: External Metadata / Publisher Integration
@@ -203,19 +203,25 @@ Open blocker:
 
 ## M5: Reader Agent Pipeline
 
-Status: Not started.
+Status: In progress. Deterministic local pipeline skeleton is implemented; real LLM/Ollama reading is not wired yet.
 
 Goal: convert a parsed paper into structured, traceable reading outputs.
 
-- `[ ]` Define Reader output JSON schema.
-- `[ ]` Extract abstract, methods, results, limitations.
-- `[ ]` Extract candidate claims.
-- `[ ]` Extract evidence candidates with page/section trace.
+- `[~]` Define Reader output JSON schema.
+- `[~]` Extract abstract, methods, results, limitations.
+- `[x]` Extract candidate claims through the local Reader action scaffold.
+- `[x]` Extract evidence candidates through the local Reader action scaffold.
 - `[ ]` Mark unsupported or weakly supported claims as provisional.
-- `[ ]` Move Paper Cards from Reading Bench to Debate Room when ready.
-- `[ ]` Log Reader Agent runs.
+- `[x]` Move Paper Cards from Reading Bench to Debate Room when ready.
+- `[x]` Log Reader Agent runs.
 - `[x]` Confirm first LLM provider: local Ollama.
 - `[x]` Assign the local Ollama model reference to current deputies across Search, Reader, Critic, Librarian, Leader, Coordinator, Strategist, Experiment, and Writer rooms.
+
+Verification:
+
+- `POST /agent-actions` with `run_reader` creates a Debate Room claim card from a Paper Card.
+- `npm.cmd run build` and `python -m compileall .\apps\api\app` passed after agent action scaffold additions.
+- Temporary SQLite smoke test passed for `run_reader`.
 
 Open decisions:
 
@@ -223,18 +229,24 @@ Open decisions:
 
 ## M6: Debate + Leader Gate
 
-Status: Not started.
+Status: In progress. Debate handoff skeleton is implemented; real multi-agent model calls are not wired yet.
 
 Goal: review Reader outputs through agent discussion and human approval.
 
-- `[ ]` Define Debate Session schema.
-- `[ ]` Add Critic Agent output schema.
-- `[ ]` Add Strategist Agent discussion output schema.
-- `[ ]` Add Experiment Designer discussion output schema.
-- `[ ]` Show unresolved issues in Debate Room.
-- `[ ]` Send review items to Leader Office.
-- `[ ]` Store Leader decisions with reason and target object.
-- `[ ]` Prevent unapproved outputs from entering Library.
+- `[~]` Define Debate Session schema.
+- `[~]` Add Critic Agent output schema.
+- `[~]` Add Strategist Agent discussion output schema.
+- `[~]` Add Experiment Designer discussion output schema.
+- `[x]` Show unresolved issues in Debate Room card details.
+- `[x]` Send review items to Leader Office through `run_debate`.
+- `[x]` Store Leader decisions with reason and target object.
+- `[x]` Prevent unapproved outputs from entering Library.
+
+Verification:
+
+- `POST /agent-actions` with `run_debate` routes the selected Debate Card to Leader Office and creates Strategy / Experiment follow-up cards.
+- Leader Review still controls Library storage through `POST /leader-decisions`.
+- Temporary SQLite smoke test passed for `run_reader` -> `run_debate`.
 
 ## M7: Library + Retrieval
 

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import type { AgentActionValue, ResearchDataMode } from "../../api/researchApi";
 import type {
   DeputyModelAssignment,
   LaboratoryRoomData,
@@ -13,7 +15,9 @@ interface DetailPanelProps {
   selection: Selection;
   rooms: LaboratoryRoomData[];
   cards: WorkflowCardData[];
+  dataMode: ResearchDataMode;
   onSelectCard: (cardId: string) => void;
+  onAgentAction: (cardId: string, action: AgentActionValue) => Promise<void>;
 }
 
 function getDetailText(card: WorkflowCardData, key: string, fallback = "Pending") {
@@ -31,6 +35,26 @@ function getDetailList(card: WorkflowCardData, key: string) {
 
 function isDebateCard(card: WorkflowCardData) {
   return card.type === "claim_debate" || card.type === "hypothesis_debate" || card.type === "contradiction_review";
+}
+
+const agentActionLabels: Record<AgentActionValue, string> = {
+  run_reader: "Run Reader",
+  run_debate: "Run Debate",
+  design_experiment: "Design Experiment",
+  draft_manuscript: "Draft Manuscript",
+};
+
+function getAvailableActions(card: WorkflowCardData): AgentActionValue[] {
+  if (card.status === "failed" || card.status === "archived") {
+    return [];
+  }
+  if (card.status === "stored_in_library" || card.approvalStatus === "approved" || card.currentRoom === "library") {
+    return ["draft_manuscript"];
+  }
+  if (card.type === "paper") return ["run_reader"];
+  if (isDebateCard(card) || card.type === "paper_review") return ["run_debate"];
+  if (card.type === "hypothesis" || card.type === "experiment_feasibility") return ["design_experiment"];
+  return [];
 }
 
 function ModelAssignmentsSection({ assignments }: { assignments?: DeputyModelAssignment[] }) {
@@ -111,7 +135,59 @@ function SourceConnectorsSection({ connectors }: { connectors?: PaperSourceConne
   );
 }
 
-export function DetailPanel({ selection, rooms, cards, onSelectCard }: DetailPanelProps) {
+function AgentActionsSection({
+  card,
+  dataMode,
+  onAgentAction,
+}: {
+  card: WorkflowCardData;
+  dataMode: ResearchDataMode;
+  onAgentAction: (cardId: string, action: AgentActionValue) => Promise<void>;
+}) {
+  const [busyAction, setBusyAction] = useState<AgentActionValue>();
+  const [message, setMessage] = useState("");
+  const actions = getAvailableActions(card);
+
+  async function handleAction(action: AgentActionValue) {
+    setBusyAction(action);
+    setMessage("");
+    try {
+      await onAgentAction(card.id, action);
+      setMessage(`${agentActionLabels[action]} completed.`);
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setMessage(detail);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  return (
+    <section className="panel-section">
+      <h3>Agent Actions</h3>
+      {actions.length === 0 ? (
+        <p className="empty-note">No direct agent action is available for this card state.</p>
+      ) : (
+        <div className="agent-action-list">
+          {actions.map((action) => (
+            <button
+              type="button"
+              key={action}
+              disabled={dataMode !== "api" || Boolean(busyAction)}
+              onClick={() => void handleAction(action)}
+            >
+              {busyAction === action ? "Running..." : agentActionLabels[action]}
+            </button>
+          ))}
+        </div>
+      )}
+      {dataMode !== "api" && <p className="empty-note">API mode is required for real agent actions.</p>}
+      {message && <p className="agent-action-message">{message}</p>}
+    </section>
+  );
+}
+
+export function DetailPanel({ selection, rooms, cards, dataMode, onSelectCard, onAgentAction }: DetailPanelProps) {
   if (selection.kind === "card") {
     const card = cards.find((item) => item.id === selection.id);
     if (!card) return null;
@@ -154,6 +230,7 @@ export function DetailPanel({ selection, rooms, cards, onSelectCard }: DetailPan
         </dl>
         <ModelAssignmentsSection assignments={currentRoom?.modelAssignments} />
         <SourceConnectorsSection connectors={cardSourceConnectors} />
+        <AgentActionsSection card={card} dataMode={dataMode} onAgentAction={onAgentAction} />
         {debateCard && (
           <>
             <section className="panel-section">

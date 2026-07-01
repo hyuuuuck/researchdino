@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   getDemoResearchLabState,
   loadResearchLabState,
+  runAgentAction,
   submitLeaderDecision,
+  type AgentActionValue,
   type LeaderDecisionValue,
   type ResearchDataMode,
   type ResearchLabState,
@@ -163,6 +165,24 @@ export function LaboratoryMap() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       setLoadError(`Could not refresh after ingest: ${message}`);
+    }
+  }
+
+  async function handleAgentAction(cardId: string, action: AgentActionValue) {
+    if (dataMode !== "api") {
+      setLoadError("Agent actions require API mode. Configure VITE_API_BASE_URL and run the local API.");
+      throw new Error("API mode is required for agent actions.");
+    }
+
+    try {
+      const result = await runAgentAction(cardId, action);
+      applyResearchLabState(await loadResearchLabState());
+      setSelection({ kind: "card", id: result.createdCardIds[0] ?? cardId });
+      setLoadError(undefined);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setLoadError(`Agent action failed: ${message}`);
+      throw error;
     }
   }
 
@@ -437,7 +457,9 @@ export function LaboratoryMap() {
           selection={selection}
           rooms={rooms}
           cards={cards}
+          dataMode={dataMode}
           onSelectCard={(cardId) => setSelection({ kind: "card", id: cardId })}
+          onAgentAction={handleAgentAction}
         />
       </section>
 

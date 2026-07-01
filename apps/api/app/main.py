@@ -6,9 +6,12 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from .agent_pipeline import PipelineError, run_agent_action
 from .demo_data import DEMO_ROOMS
 from .ingest import is_pymupdf_available, scan_pdf_folder
 from .schemas import (
+    AgentActionRequest,
+    AgentActionResult,
     AgentLogEntry,
     ApiMode,
     IngestFolderRecord,
@@ -104,6 +107,15 @@ def leader_decisions() -> list[LeaderDecisionRecord]:
 def library() -> list[LibraryEntry]:
     entries = [LibraryEntry(**entry) for entry in list_json("library_entries")]
     return list(reversed(entries))
+
+
+@app.post("/agent-actions", response_model=AgentActionResult)
+def create_agent_action(request: AgentActionRequest) -> AgentActionResult:
+    try:
+        result = run_agent_action(request.cardId, request.action)
+    except PipelineError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return AgentActionResult(**result)
 
 
 @app.post("/ingest/folder", response_model=IngestFolderRecord)

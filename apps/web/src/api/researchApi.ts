@@ -3,6 +3,7 @@ import type { AgentLogEntry, LaboratoryRoomData, WorkflowCardData } from "../typ
 
 export type ResearchDataMode = "demo" | "api";
 export type LeaderDecisionValue = "approved" | "rejected" | "needs_revision" | "stored_in_library";
+export type AgentActionValue = "run_reader" | "run_debate" | "design_experiment" | "draft_manuscript";
 
 export interface ResearchLabState {
   rooms: LaboratoryRoomData[];
@@ -25,6 +26,14 @@ export interface IngestScanResult {
   errorCardCount: number;
   parserAvailable: boolean;
   errors: string[];
+}
+
+export interface AgentActionResult {
+  action: AgentActionValue;
+  sourceCardId: string;
+  updatedCardIds: string[];
+  createdCardIds: string[];
+  message: string;
 }
 
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
@@ -106,5 +115,19 @@ export async function scanIngestFolder(): Promise<IngestScanResult> {
 
   return fetchJson<IngestScanResult>("/ingest/scan", {
     method: "POST",
+  });
+}
+
+export async function runAgentAction(
+  cardId: string,
+  action: AgentActionValue,
+): Promise<AgentActionResult> {
+  if (!configuredApiBaseUrl) {
+    throw new Error("No API base URL is configured.");
+  }
+
+  return fetchJson<AgentActionResult>("/agent-actions", {
+    method: "POST",
+    body: JSON.stringify({ cardId, action }),
   });
 }
