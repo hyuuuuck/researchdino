@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap");
+
 :root {
   color: #171416;
   background: #f8f7f4;
@@ -3083,5 +3085,1446 @@ button {
   .review-actions,
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+.rdos-canvas {
+  min-height: 100vh;
+  padding: 28px;
+  background: #e9e9ea;
+  color: #1a1719;
+  font-family: "Hanken Grotesk", Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.rdos-shell {
+  display: flex;
+  width: min(1640px, calc(100vw - 56px));
+  min-height: calc(100vh - 56px);
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 60px -32px rgba(20, 18, 22, 0.28);
+}
+
+.rdos-sidebar {
+  display: flex;
+  width: 280px;
+  flex: 0 0 280px;
+  flex-direction: column;
+  gap: 22px;
+  border-right: 1px solid #ededed;
+  padding: 24px 20px;
+}
+
+.rdos-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rdos-brand img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}
+
+.rdos-brand strong {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.rdos-nav {
+  display: grid;
+  gap: 3px;
+}
+
+.rdos-nav button,
+.rdos-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: #6b6b6b;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 650;
+}
+
+.rdos-nav button {
+  min-height: 40px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.rdos-nav button.is-active {
+  background: #f1f1f1;
+  color: #1a1719;
+  font-weight: 800;
+}
+
+.rdos-icon {
+  flex: 0 0 auto;
+}
+
+.rdos-sidebar-block,
+.rdos-stat-list,
+.rdos-quick-actions {
+  border-top: 1px solid #ededed;
+  padding-top: 18px;
+}
+
+.rdos-sidebar-block span,
+.rdos-quick-actions > span,
+.rdos-eyebrow,
+.rdos-screen-header span,
+.rdos-topbar > div:first-child > span {
+  color: #a6a6a6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.rdos-sidebar-block strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.rdos-sidebar-block em {
+  display: block;
+  margin-top: 2px;
+  color: #9a9a9a;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.rdos-stat-list {
+  display: grid;
+  gap: 11px;
+}
+
+.rdos-stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.rdos-stat-row span {
+  color: #6b6b6b;
+  font-size: 13px;
+}
+
+.rdos-stat-row strong {
+  color: #1a1719;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.rdos-quick-actions {
+  display: grid;
+  gap: 9px;
+  margin-top: auto;
+}
+
+.rdos-quick-actions button,
+.rdos-secondary-action,
+.rdos-pill-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 38px;
+  border: 1.4px solid #1a1719;
+  border-radius: 999px;
+  background: transparent;
+  color: #1a1719;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.rdos-quick-actions button {
+  justify-content: flex-start;
+  padding: 0 13px;
+}
+
+.rdos-workspace {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.rdos-topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  min-height: 112px;
+  border-bottom: 1px solid #ededed;
+  padding: 22px 28px 18px;
+}
+
+.rdos-topbar h1 {
+  margin: 3px 0 0;
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.rdos-topbar p {
+  margin: 5px 0 0;
+  color: #6b6b6b;
+  font-size: 13px;
+}
+
+.rdos-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rdos-top-actions > button,
+.rdos-system-status {
+  display: grid;
+  min-width: 190px;
+  min-height: 62px;
+  align-content: center;
+  border: 1px solid #e3e3e3;
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px 15px;
+  text-align: left;
+}
+
+.rdos-top-actions small,
+.rdos-system-status small {
+  color: #1a1719;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.rdos-top-actions strong,
+.rdos-system-status strong {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rdos-system-status i,
+.rdos-online-dot,
+.rdos-toolbar i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #2f7d5f;
+  animation: rdos-pulse 2s ease-in-out infinite;
+}
+
+.rdos-pill-button {
+  min-width: 132px !important;
+  border-color: #e3e3e3 !important;
+}
+
+.rdos-icon-button {
+  display: grid !important;
+  min-width: 46px !important;
+  width: 46px;
+  min-height: 46px !important;
+  place-items: center;
+  padding: 0 !important;
+}
+
+.rdos-alert,
+.rdos-action-message {
+  grid-column: 1 / -1;
+  margin: 0;
+  border-top: 1px solid #ededed;
+  padding-top: 8px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.rdos-alert {
+  color: #c0392b !important;
+}
+
+.rdos-action-message {
+  color: #2f7d5f !important;
+}
+
+.rdos-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #ededed;
+  padding: 12px 28px;
+}
+
+.rdos-tabs button {
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0 15px;
+  font-size: 13px;
+}
+
+.rdos-tabs button.is-active {
+  background: #1a1719;
+  color: #fff;
+}
+
+.rdos-screen {
+  padding: 22px 28px 28px;
+  animation: rdos-screen-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rdos-map-stage {
+  position: relative;
+  width: 1300px;
+  height: 685px;
+  margin: 0 auto;
+  border-radius: 18px;
+  background:
+    linear-gradient(90deg, rgba(26, 23, 25, 0.04) 1px, transparent 1px),
+    linear-gradient(rgba(26, 23, 25, 0.04) 1px, transparent 1px),
+    #fff;
+  background-size: 22px 22px;
+}
+
+.rdos-map-flow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.rdos-map-flow path {
+  fill: none;
+  stroke: #c8c8c8;
+  stroke-width: 1.8;
+  stroke-dasharray: 9 8;
+}
+
+.rdos-map-flow path.is-live {
+  stroke: #2f7d5f;
+  stroke-width: 2.2;
+  animation: rdos-flow 1.2s linear infinite;
+}
+
+.rdos-map-flow path.is-dotted {
+  stroke-dasharray: 2 7;
+}
+
+.rdos-room-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1.5px solid #1a1719;
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 16px 11px;
+  color: #1a1719;
+  font-family: inherit;
+  text-align: left;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.rdos-room-node.is-clickable {
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.rdos-room-node.is-clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px -12px rgba(20, 18, 22, 0.4);
+}
+
+.rdos-room-node header,
+.rdos-room-node footer,
+.rdos-room-status,
+.rdos-global-queue > div:first-child,
+.rdos-screen-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.rdos-room-node header strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.rdos-room-node header span {
+  display: block;
+  margin-top: 3px;
+  color: #9a9a9a;
+  font-size: 11.5px;
+  line-height: 1.1;
+}
+
+.rdos-room-node header .rdos-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.rdos-room-dino {
+  min-height: 54px;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.rdos-room-dino img {
+  max-width: 78%;
+  max-height: 95px;
+  object-fit: contain;
+  filter: contrast(1.08);
+}
+
+.rdos-room-status {
+  min-height: 34px;
+  border: 1.3px solid #d9d9d9;
+  border-radius: 7px;
+  padding: 5px 7px;
+  font-size: 10px;
+}
+
+.rdos-room-status b {
+  border: 1.3px solid #1a1719;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 8.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.rdos-room-status span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.rdos-room-status em {
+  flex: 0 0 auto;
+  font-size: 8.5px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rdos-empty-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b0b0b0;
+  text-transform: uppercase;
+}
+
+.rdos-empty-slot i {
+  width: 14px;
+  height: 14px;
+  border: 1.3px solid #1a1719;
+  border-radius: 2px;
+}
+
+.rdos-room-node footer {
+  color: #a6a6a6;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rdos-map-card {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  gap: 10px;
+  border: 1px solid #e3e3e3;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 16px;
+}
+
+.rdos-map-card strong {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rdos-legend-card {
+  top: 22px;
+  right: 290px;
+  width: 170px;
+}
+
+.rdos-health-card {
+  top: 22px;
+  right: 0;
+  width: 250px;
+}
+
+.rdos-legend-card span {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 10px;
+  align-items: center;
+  color: #4a4a4a;
+  font-size: 12px;
+}
+
+.rdos-legend-card i {
+  height: 0;
+  border-top: 2px solid #1a1719;
+}
+
+.rdos-legend-card .dash {
+  border-top-style: dashed;
+}
+
+.rdos-legend-card .long {
+  border-top-style: dashed;
+  opacity: 0.65;
+}
+
+.rdos-legend-card .dot {
+  border-top-style: dotted;
+  opacity: 0.65;
+}
+
+.rdos-health-bar-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  color: #6b6b6b;
+  font-size: 13px;
+}
+
+.rdos-health-bar-row b {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rdos-health-bar-row i {
+  display: inline-block;
+  width: 72px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e3e3e3;
+}
+
+.rdos-health-bar-row i b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #1a1719;
+}
+
+.rdos-global-queue {
+  width: 1300px;
+  margin: 18px auto 0;
+  border: 1px solid #e3e3e3;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.rdos-global-queue > div:first-child span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rdos-global-queue > div:first-child button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1.4px solid #1a1719;
+  border-radius: 999px;
+  background: transparent;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.rdos-queue-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.rdos-queue-grid button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  align-items: center;
+  min-height: 58px;
+  border: 1px solid #e3e3e3;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rdos-queue-grid .rdos-icon {
+  grid-row: span 2;
+}
+
+.rdos-queue-grid strong,
+.rdos-queue-grid small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rdos-queue-grid strong {
+  font-size: 13px;
+}
+
+.rdos-queue-grid small {
+  color: #9a9a9a;
+}
+
+.rdos-queue-grid em {
+  grid-row: span 2;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.priority-high {
+  color: #c0392b !important;
+}
+
+.priority-medium {
+  color: #c98a16 !important;
+}
+
+.priority-low {
+  color: #6b6b6b !important;
+}
+
+.rdos-debate-grid,
+.rdos-reader-grid,
+.rdos-report-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.rdos-debate-grid {
+  grid-template-columns: 312px minmax(0, 1fr) 300px;
+}
+
+.rdos-reader-grid {
+  grid-template-columns: 282px minmax(0, 1fr) 322px;
+}
+
+.rdos-report-grid {
+  grid-template-columns: 262px minmax(0, 1fr) 300px;
+}
+
+.rdos-panel,
+.rdos-feature-card,
+.rdos-library-row,
+.rdos-agent-card,
+.rdos-task-card,
+.rdos-small-report {
+  border: 1px solid #e3e3e3;
+  border-radius: 14px;
+  background: #fff;
+  padding: 18px;
+}
+
+.rdos-panel h2,
+.rdos-screen-header h2,
+.rdos-feature-card h2 {
+  margin: 3px 0 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.rdos-panel p,
+.rdos-feature-card p {
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.rdos-live-pill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  background: #2f7d5f;
+  color: #fff;
+  padding: 6px 11px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rdos-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 12px 0;
+}
+
+.rdos-chip-row b,
+.rdos-library-row b,
+.rdos-small-report em,
+.rdos-task-card b {
+  border: 1.3px solid #e3e3e3;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #1a1719;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rdos-participant {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.rdos-participant img,
+.rdos-thread-message img,
+.rdos-composer img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #f7f7f7;
+  object-fit: contain;
+}
+
+.rdos-participant strong,
+.rdos-thread-message strong {
+  display: block;
+  font-size: 13px;
+}
+
+.rdos-participant span {
+  color: #9a9a9a;
+  font-size: 12px;
+}
+
+.rdos-thread {
+  display: grid;
+  gap: 12px;
+}
+
+.rdos-thread-message {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.rdos-thread-message header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rdos-thread-message header b {
+  border: 1px solid #1a1719;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.rdos-thread-message header span {
+  margin-left: auto;
+  color: #9a9a9a;
+  font-size: 11px;
+}
+
+.rdos-thread-message p {
+  margin: 5px 0 0;
+  border: 1px solid #e3e3e3;
+  border-radius: 4px 14px 14px 14px;
+  padding: 10px 12px;
+}
+
+.rdos-composer {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 38px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.rdos-composer span {
+  border: 1px solid #e3e3e3;
+  border-radius: 999px;
+  color: #9a9a9a;
+  padding: 10px 14px;
+}
+
+.rdos-composer button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #1a1719;
+  color: #fff;
+}
+
+.rdos-score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.rdos-score-grid b {
+  border: 1px solid #e3e3e3;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+
+.rdos-confidence {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.rdos-confidence i,
+.rdos-progress i {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e3e3e3;
+}
+
+.rdos-confidence b,
+.rdos-progress b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #1a1719;
+}
+
+.rdos-keypoints {
+  display: grid;
+  gap: 8px;
+  padding-left: 18px;
+  color: #6b6b6b;
+  font-size: 13px;
+}
+
+.rdos-keypoints .good {
+  color: #2f7d5f;
+}
+
+.rdos-keypoints .bad {
+  color: #c0392b;
+}
+
+.rdos-keypoints .warn {
+  color: #c98a16;
+}
+
+.rdos-primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: #1a1719;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 18px;
+}
+
+.rdos-primary-action,
+.rdos-secondary-action {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.rdos-primary-action:disabled,
+.rdos-secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.rdos-now-reading {
+  text-align: center;
+}
+
+.rdos-now-reading img {
+  width: 150px;
+  height: 110px;
+  object-fit: contain;
+}
+
+.rdos-progress {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  text-align: left;
+}
+
+.rdos-reading-pane h2 {
+  font-size: 26px;
+}
+
+.rdos-reading-pane mark {
+  background: #efe9dd;
+  padding: 0 3px;
+}
+
+.rdos-reader-note {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px 12px;
+  border: 1.4px solid #1a1719;
+  border-radius: 14px;
+  margin-top: 20px;
+  padding: 14px;
+}
+
+.rdos-reader-note img {
+  grid-row: span 2;
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+}
+
+.rdos-reader-note span {
+  font-weight: 800;
+}
+
+.rdos-reader-note p {
+  margin: 0;
+}
+
+.rdos-claim-card {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #e3e3e3;
+  border-radius: 12px;
+  margin-top: 10px;
+  padding: 12px;
+}
+
+.rdos-claim-card span {
+  color: #9a9a9a;
+  font-size: 12px;
+}
+
+.rdos-claim-card button {
+  border: 1.4px solid #1a1719;
+  border-radius: 999px;
+  background: transparent;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.rdos-section-row {
+  border-bottom: 1px solid #ededed;
+  padding: 12px 0;
+  color: #6b6b6b;
+  font-weight: 700;
+}
+
+.rdos-section-row.is-active {
+  color: #1a1719;
+}
+
+.rdos-editor {
+  min-height: 560px;
+}
+
+.rdos-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid #ededed;
+  padding-bottom: 12px;
+}
+
+.rdos-toolbar b {
+  border: 1px solid #e3e3e3;
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+
+.rdos-toolbar span {
+  margin-left: auto;
+  color: #6b6b6b;
+  font-size: 12px;
+}
+
+.rdos-editor em {
+  color: #9a9a9a;
+  font-style: normal;
+}
+
+.rdos-caret {
+  display: inline-block;
+  width: 2px;
+  height: 18px;
+  margin-left: 3px;
+  background: #1a1719;
+  vertical-align: middle;
+  animation: rdos-pulse 1s step-end infinite;
+}
+
+.rdos-screen-header {
+  margin-bottom: 18px;
+}
+
+.rdos-screen-header > div:last-child {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.rdos-agent-grid,
+.rdos-card-grid,
+.rdos-project-grid,
+.rdos-settings-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.rdos-agent-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.rdos-agent-card {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.rdos-agent-card img {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  background: #f7f7f7;
+  object-fit: contain;
+}
+
+.rdos-agent-card strong,
+.rdos-library-row strong,
+.rdos-small-report strong {
+  display: block;
+  font-size: 14px;
+}
+
+.rdos-agent-card span,
+.rdos-library-row span,
+.rdos-small-report span {
+  color: #9a9a9a;
+  font-size: 12px;
+}
+
+.rdos-agent-card em,
+.rdos-library-row em {
+  border-radius: 999px;
+  background: #f1f1f1;
+  padding: 5px 9px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rdos-agent-card em.is-live,
+.rdos-library-row em.is-live {
+  background: #2f7d5f;
+  color: #fff;
+}
+
+.rdos-agent-card p {
+  grid-column: 2 / -1;
+  margin: 0;
+  border-radius: 9px;
+  background: #fafafa;
+  color: #6b6b6b;
+  padding: 9px 10px;
+}
+
+.rdos-agent-card footer {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  color: #a6a6a6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rdos-search-input {
+  min-width: 360px;
+  border: 1px solid #e3e3e3;
+  border-radius: 999px;
+  padding: 11px 16px;
+}
+
+.rdos-filter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.rdos-filter-row b,
+.rdos-filter-row span {
+  border: 1px solid #e3e3e3;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.rdos-filter-row b {
+  background: #1a1719;
+  color: #fff;
+}
+
+.rdos-library-list {
+  display: grid;
+  border: 1px solid #e3e3e3;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.rdos-library-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  border: 0;
+  border-bottom: 1px solid #ededed;
+  border-radius: 0;
+}
+
+.rdos-library-row:last-child {
+  border-bottom: 0;
+}
+
+.rdos-library-row .rdos-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: #f7f7f7;
+  padding: 8px;
+}
+
+.rdos-feature-card {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto auto;
+  gap: 16px;
+  align-items: center;
+  border-color: #1a1719;
+  margin-bottom: 16px;
+}
+
+.rdos-feature-card > .rdos-icon {
+  width: 74px;
+  height: 74px;
+  border-radius: 16px;
+  background: #f7f7f7;
+  padding: 18px;
+}
+
+.rdos-feature-card span {
+  color: #a6a6a6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rdos-feature-card button {
+  border: 1.4px solid #1a1719;
+  border-radius: 999px;
+  background: transparent;
+  padding: 9px 16px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.rdos-leader-gate {
+  margin-bottom: 16px;
+}
+
+.rdos-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rdos-card-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.rdos-small-report {
+  display: grid;
+  gap: 8px;
+}
+
+.rdos-small-report .rdos-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: #f7f7f7;
+  padding: 8px;
+}
+
+.rdos-project-stats {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.rdos-project-grid,
+.rdos-settings-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rdos-kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.rdos-kanban-column {
+  border: 1px solid #e3e3e3;
+  border-radius: 14px;
+  background: #fafafa;
+  padding: 12px;
+}
+
+.rdos-kanban-column h3 {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.rdos-task-card {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.rdos-task-card.is-done {
+  background: #fafafa;
+}
+
+.rdos-task-card.is-done strong {
+  text-decoration: line-through;
+}
+
+.rdos-task-card div,
+.rdos-task-card footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.rdos-task-card footer {
+  color: #9a9a9a;
+  font-size: 12px;
+}
+
+.rdos-task-card footer img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+.rdos-task-card footer span {
+  margin-left: auto;
+  border-radius: 999px;
+  background: #2f7d5f;
+  color: #fff;
+  padding: 2px 7px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.rdos-segment {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid #e3e3e3;
+  border-radius: 999px;
+  padding: 3px;
+  margin: 14px 0;
+}
+
+.rdos-segment button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 8px;
+  font-weight: 800;
+}
+
+.rdos-segment .is-active {
+  background: #1a1719;
+  color: #fff;
+}
+
+.rdos-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #ededed;
+  padding: 12px 0;
+}
+
+.rdos-toggle-row i {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 25px;
+  border: 1.5px solid #d5d5d5;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.rdos-toggle-row i::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #d5d5d5;
+  transition: transform 0.16s ease;
+}
+
+.rdos-toggle-row i.is-active {
+  border-color: #1a1719;
+  background: #1a1719;
+}
+
+.rdos-toggle-row i.is-active::before {
+  background: #fff;
+  transform: translateX(19px);
+}
+
+.rdos-range,
+.rdos-ingest-form label {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  color: #6b6b6b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rdos-ingest-form input {
+  width: 100%;
+  border: 1px solid #e3e3e3;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+}
+
+.rdos-ingest-result {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@keyframes rdos-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rdos-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes rdos-flow {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+@media (max-width: 1500px) {
+  .rdos-shell {
+    width: 1640px;
+  }
+
+  .rdos-canvas {
+    overflow-x: auto;
   }
 }

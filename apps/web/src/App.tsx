@@ -1,5 +1,5 @@
-import { LaboratoryMap } from "./components/laboratory/LaboratoryMap";
+import { ResearchDinoOS } from "./components/laboratory/ResearchDinoOS";
 
 export default function App() {
-  return <LaboratoryMap />;
+  return <ResearchDinoOS />;
 }
