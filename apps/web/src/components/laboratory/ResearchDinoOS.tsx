@@ -133,6 +133,22 @@ const taskRoomOptions: Array<{ value: RoomId; label: string }> = [
   { value: "writing", label: "Writing Studio" },
 ];
 
+type AutonomyMode = "manual" | "assisted" | "auto";
+
+type ControlSettings = {
+  sourceEnabled: Record<string, boolean>;
+  autonomyMode: AutonomyMode;
+  autoApproveLowRisk: boolean;
+  maxParallelTasks: number;
+  localInference: boolean;
+  reasoningModel: string;
+  readingModel: string;
+};
+
+const controlSettingsStorageKey = "researchdino-control-settings";
+
+const modelOptions = ["local-research-dino", "llama3.1", "mistral", "manual-review"] as const;
+
 type AgentProfile = {
   mission: string;
   inputs: string[];
@@ -277,6 +293,40 @@ function approvalForStatus(status: WorkflowStatus): WorkflowCardData["approvalSt
   if (status === "waiting_for_user" || status === "waiting_for_leader_review") return "pending_review";
   if (status === "needs_more_evidence") return "needs_revision";
   return "draft";
+}
+
+function defaultControlSettings(sourceConnectors: PaperSourceConnector[]): ControlSettings {
+  return {
+    sourceEnabled: Object.fromEntries(sourceConnectors.map((connector) => [connector.id, connector.enabled])),
+    autonomyMode: "assisted",
+    autoApproveLowRisk: false,
+    maxParallelTasks: 6,
+    localInference: true,
+    reasoningModel: "local-research-dino",
+    readingModel: "local-research-dino",
+  };
+}
+
+function mergeControlSettings(base: ControlSettings, sourceConnectors: PaperSourceConnector[]): ControlSettings {
+  return {
+    ...base,
+    sourceEnabled: {
+      ...Object.fromEntries(sourceConnectors.map((connector) => [connector.id, connector.enabled])),
+      ...base.sourceEnabled,
+    },
+  };
+}
+
+function loadControlSettings(sourceConnectors: PaperSourceConnector[]): ControlSettings {
+  const fallback = defaultControlSettings(sourceConnectors);
+  if (typeof window === "undefined") return fallback;
+  try {
+    const stored = window.localStorage.getItem(controlSettingsStorageKey);
+    if (!stored) return fallback;
+    return mergeControlSettings({ ...fallback, ...JSON.parse(stored) }, sourceConnectors);
+  } catch {
+    return fallback;
+  }
 }
 
 function firstCard(cards: WorkflowCardData[], predicate: (card: WorkflowCardData) => boolean) {
@@ -1749,29 +1799,114 @@ function SettingsScreen({
   onPathChange: (path: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const [settings, setSettings] = useState(() => loadControlSettings(sourceConnectors));
+  const [savedSettings, setSavedSettings] = useState(settings);
+  const [savedAt, setSavedAt] = useState("");
+  const isDirty = JSON.stringify(settings) !== JSON.stringify(savedSettings);
+
+  useEffect(() => {
+    const loaded = loadControlSettings(sourceConnectors);
+    setSettings(loaded);
+    setSavedSettings(loaded);
+  }, [sourceConnectors]);
+
+  function updateSettings(patch: Partial<ControlSettings>) {
+    setSettings((current) => ({ ...current, ...patch }));
+  }
+
+  function toggleSource(sourceId: string) {
+    setSettings((current) => ({
+      ...current,
+      sourceEnabled: {
+        ...current.sourceEnabled,
+        [sourceId]: !current.sourceEnabled[sourceId],
+      },
+    }));
+  }
+
+  function handleSave() {
+    window.localStorage.setItem(controlSettingsStorageKey, JSON.stringify(settings));
+    setSavedSettings(settings);
+    setSavedAt(currentDisplayTime());
+  }
+
   return (
     <section>
-      <ScreenHeader eyebrow="Settings" title="ResearchDino Controls" meta={<button className="rdos-primary-action" type="button">Save Changes</button>} />
+      <ScreenHeader
+        eyebrow="Settings"
+        title="ResearchDino Controls"
+        meta={
+          <div className="rdos-settings-save">
+            <span>{isDirty ? "Unsaved changes" : savedAt ? `Saved ${savedAt}` : "Saved"}</span>
+            <button className="rdos-primary-action" type="button" disabled={!isDirty} onClick={handleSave}>
+              Save Changes
+            </button>
+          </div>
+        }
+      />
       <div className="rdos-settings-grid">
         <article className="rdos-panel rdos-source-panel">
           <span className="rdos-eyebrow">Paper Sources</span>
           <div className="rdos-source-list">
             {sourceConnectors.map((connector) => (
-              <SourceConnectorRow connector={connector} key={connector.id} />
+              <SourceConnectorRow
+                connector={connector}
+                enabled={Boolean(settings.sourceEnabled[connector.id])}
+                key={connector.id}
+                onToggle={() => toggleSource(connector.id)}
+              />
             ))}
           </div>
         </article>
         <article className="rdos-panel">
           <span className="rdos-eyebrow">Autonomy</span>
-          <div className="rdos-segment"><button>Manual</button><button className="is-active">Assisted</button><button>Auto</button></div>
-          <Toggle label="Auto-approve low-risk claims" active={false} />
-          <label className="rdos-range">Max parallel tasks <input type="range" min="1" max="9" defaultValue="6" /></label>
+          <div className="rdos-segment">
+            {(["manual", "assisted", "auto"] as const).map((mode) => (
+              <button
+                className={settings.autonomyMode === mode ? "is-active" : ""}
+                type="button"
+                key={mode}
+                onClick={() => updateSettings({ autonomyMode: mode })}
+              >
+                {mode[0].toUpperCase()}{mode.slice(1)}
+              </button>
+            ))}
+          </div>
+          <Toggle
+            label="Auto-approve low-risk claims"
+            active={settings.autoApproveLowRisk}
+            onToggle={() => updateSettings({ autoApproveLowRisk: !settings.autoApproveLowRisk })}
+          />
+          <label className="rdos-range">
+            Max parallel tasks <b>{settings.maxParallelTasks}</b>
+            <input
+              type="range"
+              min="1"
+              max="9"
+              value={settings.maxParallelTasks}
+              onChange={(event) => updateSettings({ maxParallelTasks: Number(event.target.value) })}
+            />
+          </label>
         </article>
         <article className="rdos-panel">
           <span className="rdos-eyebrow">Models</span>
-          <StatRow label="Reasoning & debate" value="Ollama local" />
-          <StatRow label="Read & summarize" value="Ollama local" />
-          <Toggle label="Local inference" active />
+          <label className="rdos-model-select">
+            Reasoning & debate
+            <select value={settings.reasoningModel} onChange={(event) => updateSettings({ reasoningModel: event.target.value })}>
+              {modelOptions.map((model) => <option key={model} value={model}>{model}</option>)}
+            </select>
+          </label>
+          <label className="rdos-model-select">
+            Read & summarize
+            <select value={settings.readingModel} onChange={(event) => updateSettings({ readingModel: event.target.value })}>
+              {modelOptions.map((model) => <option key={model} value={model}>{model}</option>)}
+            </select>
+          </label>
+          <Toggle
+            label="Local inference"
+            active={settings.localInference}
+            onToggle={() => updateSettings({ localInference: !settings.localInference })}
+          />
         </article>
         <article className="rdos-panel">
           <span className="rdos-eyebrow">Local PDF Ingest</span>
@@ -1795,10 +1930,18 @@ function SettingsScreen({
   );
 }
 
-function SourceConnectorRow({ connector }: { connector: PaperSourceConnector }) {
-  const status = connector.enabled ? "Connected" : connector.access === "license_gated" ? "Needs account" : "Not connected";
+function SourceConnectorRow({
+  connector,
+  enabled,
+  onToggle,
+}: {
+  connector: PaperSourceConnector;
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  const status = enabled ? (connector.access === "license_gated" ? "Enabled, needs account" : "Enabled") : "Disabled";
   return (
-    <div className={`rdos-source-row${connector.enabled ? " is-enabled" : ""}`}>
+    <button className={`rdos-source-row${enabled ? " is-enabled" : ""}`} type="button" onClick={onToggle}>
       <div>
         <strong>{connector.label}</strong>
         <span>{connector.scope}</span>
@@ -1814,7 +1957,8 @@ function SourceConnectorRow({ connector }: { connector: PaperSourceConnector }) 
         </div>
       </dl>
       <p>{connector.notes}</p>
-    </div>
+      <em>{enabled ? "Click to disable" : "Click to enable"}</em>
+    </button>
   );
 }
 
@@ -1900,12 +2044,12 @@ function ThreadMessage({ agent, name, tag, text }: { agent: AgentVariant; name: 
   );
 }
 
-function Toggle({ label, active }: { label: string; active: boolean }) {
+function Toggle({ label, active, onToggle }: { label: string; active: boolean; onToggle: () => void }) {
   return (
-    <div className="rdos-toggle-row">
+    <button className="rdos-toggle-row" type="button" onClick={onToggle}>
       <span>{label}</span>
       <i className={active ? "is-active" : ""} />
-    </div>
+    </button>
   );
 }
 

@@ -5031,6 +5031,7 @@ button {
   border-radius: 999px;
   background: transparent;
   padding: 8px;
+  cursor: pointer;
   font-weight: 800;
 }
 
@@ -5058,11 +5059,21 @@ button {
   border-radius: 12px;
   background: #fafafa;
   padding: 10px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .rdos-source-row.is-enabled {
   border-color: #1a1719;
   background: #fff;
+}
+
+.rdos-source-row:hover {
+  border-color: #1a1719;
+  box-shadow: inset 0 0 0 1px #1a1719;
 }
 
 .rdos-source-row strong {
@@ -5081,6 +5092,15 @@ button {
 
 .rdos-source-row p {
   margin: 0;
+}
+
+.rdos-source-row em {
+  color: #2f7d5f;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
 .rdos-source-row dl {
@@ -5117,8 +5137,15 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
+  border: 0;
   border-bottom: 1px solid #ededed;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
   padding: 12px 0;
+  text-align: left;
 }
 
 .rdos-toggle-row i {
@@ -5161,6 +5188,47 @@ button {
   color: #6b6b6b;
   font-size: 13px;
   font-weight: 700;
+}
+
+.rdos-range b {
+  color: #1a1719;
+  font-size: 18px;
+}
+
+.rdos-settings-save {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.rdos-settings-save span {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.rdos-settings-save button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.rdos-model-select {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.rdos-model-select select {
+  width: 100%;
+  border: 1px solid #e3e3e3;
+  border-radius: 10px;
+  background: #fff;
+  color: #1a1719;
+  font: inherit;
+  padding: 9px 10px;
 }
 
 .rdos-ingest-form input {
