@@ -4793,6 +4793,54 @@ button {
   margin-top: 10px;
 }
 
+.rdos-project-create {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: stretch;
+  border: 1px solid #1a1719;
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.rdos-project-create input,
+.rdos-project-create textarea {
+  min-width: 0;
+  border: 1px solid #e3e3e3;
+  border-radius: 10px;
+  color: #1a1719;
+  font: inherit;
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+.rdos-project-create textarea {
+  grid-column: 1 / -2;
+  min-height: 72px;
+  resize: vertical;
+}
+
+.rdos-project-create button {
+  grid-column: -2 / -1;
+  grid-row: 1 / span 2;
+  align-self: stretch;
+  border: 1px solid #1a1719;
+  border-radius: 12px;
+  background: #1a1719;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 12px 16px;
+}
+
+.rdos-project-create button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
 .rdos-project-grid,
 .rdos-settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -23,6 +23,7 @@ from .schemas import (
     LibraryEntry,
     PaperFileRecord,
     ResearchProject,
+    ResearchProjectCreateRequest,
     WorkflowCard,
     WorkflowCardCreateRequest,
     WorkflowCardPatchRequest,
@@ -151,6 +152,28 @@ def rooms() -> list[LaboratoryRoom]:
 @app.get("/projects", response_model=list[ResearchProject])
 def projects() -> list[ResearchProject]:
     return [ResearchProject(**project) for project in list_json("projects")]
+
+
+@app.post("/projects", response_model=ResearchProject)
+def create_project(request: ResearchProjectCreateRequest) -> ResearchProject:
+    title = request.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Project title is required")
+
+    project_id = f"project-{uuid4().hex[:12]}"
+    project = {
+        "id": project_id,
+        "title": title,
+        "shortTitle": request.shortTitle.strip() or title,
+        "domain": request.domain.strip() or "Research",
+        "description": request.description.strip() or f"Research workspace for {title}.",
+        "status": request.status,
+        "sourceNote": request.sourceNote.strip() or "Source pending",
+        "lead": request.lead.strip() or "ResearchDino Lab",
+        "createdAt": current_iso_time(),
+    }
+    put_json("projects", project_id, project)
+    return ResearchProject(**project)
 
 
 @app.get("/cards", response_model=list[WorkflowCard])

@@ -129,6 +129,16 @@ class ResearchProject(BaseModel):
     createdAt: str
 
 
+class ResearchProjectCreateRequest(BaseModel):
+    title: str
+    shortTitle: str = ""
+    domain: str = "Research"
+    description: str = ""
+    sourceNote: str = "Source pending"
+    lead: str = "ResearchDino Lab"
+    status: Literal["active", "paused", "completed"] = "active"
+
+
 class LaboratoryRoom(BaseModel):
     id: RoomId
     title: str

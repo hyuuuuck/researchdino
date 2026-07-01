@@ -1,5 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import {
+  createResearchProject,
   createWorkflowCard,
   deleteWorkflowCard,
   getDemoResearchLabState,
@@ -10,6 +11,7 @@ import {
   submitLeaderDecision,
   updateWorkflowCard,
   type AgentActionValue,
+  type CreateResearchProjectInput,
   type CreateWorkflowCardInput,
   type IngestScanResult,
   type LeaderDecisionValue,
@@ -490,6 +492,43 @@ export function ResearchDinoOS() {
     }
   }
 
+  async function handleCreateProject(input: CreateResearchProjectInput) {
+    const title = input.title.trim();
+    if (!title) {
+      setActionMessage("Project title is required.");
+      return;
+    }
+    setBusyAction("project-create");
+    setActionMessage("");
+    try {
+      if (dataMode === "api") {
+        const project = await createResearchProject({ ...input, title });
+        await refreshState();
+        setActiveProjectId(project.id);
+      } else {
+        const project: ResearchProjectData = {
+          id: `project-${Date.now()}`,
+          title,
+          shortTitle: input.shortTitle?.trim() || title,
+          domain: input.domain?.trim() || "Research",
+          description: input.description?.trim() || `Research workspace for ${title}.`,
+          status: input.status ?? "active",
+          sourceNote: input.sourceNote?.trim() || "Source pending",
+          lead: input.lead?.trim() || "ResearchDino Lab",
+          createdAt: new Date().toISOString(),
+        };
+        setProjects((current) => [...current, project]);
+        setActiveProjectId(project.id);
+      }
+      setActionMessage(`Project created: ${title}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setActionMessage(message);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
   async function handlePatchTask(card: WorkflowCardData, patch: UpdateWorkflowCardInput) {
     setBusyAction(`task-update:${card.id}`);
     setActionMessage("");
@@ -689,11 +728,13 @@ export function ResearchDinoOS() {
                 projects={projects}
                 cards={cards}
                 activeProjectId={activeProject?.id ?? defaultProjectId}
+                busy={busyAction === "project-create"}
                 onSelectProject={(projectId) => {
                   setActiveProjectId(projectId);
                   setScreen("map");
                 }}
                 onOpenMap={() => setScreen("map")}
+                onCreateProject={handleCreateProject}
               />
             )}
             {screen === "tasks" && (
@@ -1470,20 +1511,68 @@ function ProjectsScreen({
   projects,
   cards,
   activeProjectId,
+  busy,
   onSelectProject,
   onOpenMap,
+  onCreateProject,
 }: {
   projects: ResearchProjectData[];
   cards: WorkflowCardData[];
   activeProjectId: string;
+  busy: boolean;
   onSelectProject: (projectId: string) => void;
   onOpenMap: () => void;
+  onCreateProject: (input: CreateResearchProjectInput) => void;
 }) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [title, setTitle] = useState("");
+  const [domain, setDomain] = useState("");
+  const [sourceNote, setSourceNote] = useState("");
+  const [lead, setLead] = useState("");
+  const [description, setDescription] = useState("");
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
   const activeCards = cards.filter((card) => belongsToProject(card, activeProject?.id ?? defaultProjectId));
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onCreateProject({
+      title,
+      shortTitle: title,
+      domain,
+      sourceNote,
+      lead,
+      description,
+      status: "active",
+    });
+    setTitle("");
+    setDomain("");
+    setSourceNote("");
+    setLead("");
+    setDescription("");
+    setShowCreate(false);
+  }
+
   return (
     <section>
-      <ScreenHeader eyebrow="Projects" title="Research Programs" meta={<button className="rdos-secondary-action" type="button">New Project</button>} />
+      <ScreenHeader
+        eyebrow="Projects"
+        title="Research Programs"
+        meta={
+          <button className="rdos-secondary-action" type="button" onClick={() => setShowCreate((value) => !value)}>
+            {showCreate ? "Close" : "New Project"}
+          </button>
+        }
+      />
+      {showCreate && (
+        <form className="rdos-project-create" onSubmit={handleSubmit}>
+          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Project title, e.g. Layered Materials" disabled={busy} />
+          <input value={domain} onChange={(event) => setDomain(event.target.value)} placeholder="Domain, e.g. Materials Science" disabled={busy} />
+          <input value={sourceNote} onChange={(event) => setSourceNote(event.target.value)} placeholder="Primary source note" disabled={busy} />
+          <input value={lead} onChange={(event) => setLead(event.target.value)} placeholder="Lead / owner" disabled={busy} />
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Research goal or program description" disabled={busy} />
+          <button type="submit" disabled={busy || !title.trim()}>Create Project</button>
+        </form>
+      )}
       <article className="rdos-feature-card">
         <Icon name="folder" />
         <div>

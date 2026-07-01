@@ -53,6 +53,16 @@ export interface UpdateWorkflowCardInput {
   progress?: number;
 }
 
+export interface CreateResearchProjectInput {
+  title: string;
+  shortTitle?: string;
+  domain?: string;
+  description?: string;
+  sourceNote?: string;
+  lead?: string;
+  status?: ResearchProjectData["status"];
+}
+
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
 
 export function getDemoResearchLabState(): ResearchLabState {
@@ -181,5 +191,16 @@ export async function deleteWorkflowCard(cardId: string): Promise<void> {
 
   await fetchJson(`/cards/${cardId}`, {
     method: "DELETE",
+  });
+}
+
+export async function createResearchProject(input: CreateResearchProjectInput): Promise<ResearchProjectData> {
+  if (!configuredApiBaseUrl) {
+    throw new Error("No API base URL is configured.");
+  }
+
+  return fetchJson<ResearchProjectData>("/projects", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
