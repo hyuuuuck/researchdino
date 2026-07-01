@@ -90,6 +90,98 @@ const roomPurpose: Record<RoomId, string> = {
   writing: "Draft & refine manuscripts",
 };
 
+type AgentProfile = {
+  mission: string;
+  inputs: string[];
+  method: string[];
+  outputs: string[];
+  handoffs: string[];
+  qualityGate: string;
+};
+
+const agentProfiles: Record<AgentVariant, AgentProfile> = {
+  leader: {
+    mission: "Owns final scientific judgment. The Leader approves, rejects, or sends work back for re-analysis.",
+    inputs: ["Coordinator briefs", "debate conclusions", "critic objections", "experiment feasibility", "library trace status"],
+    method: ["Checks whether claims are source-backed.", "Looks for unresolved objections or missing controls.", "Decides whether the output can move forward."],
+    outputs: ["approval decision", "rejection reason", "more-evidence request", "library storage gate"],
+    handoffs: ["Coordinator", "Library", "Strategy Room", "Experiment Bay"],
+    qualityGate: "Nothing becomes reusable knowledge until the Leader can trace claim, evidence, objection, and decision criteria.",
+  },
+  coordinator: {
+    mission: "Turns messy department work into one clean packet for the Leader.",
+    inputs: ["Search leads", "Reader extraction", "Critic comments", "Strategy hypotheses", "Experiment risks"],
+    method: ["Collects department outputs.", "Removes duplicates and unresolved handoff gaps.", "Builds a short decision brief for review."],
+    outputs: ["leader brief", "handoff summary", "blocked issue list", "next-room routing"],
+    handoffs: ["Leader Office", "Search Dock", "Debate Room", "Strategy Room", "Experiment Bay"],
+    qualityGate: "The brief must show who said what, what evidence supports it, and what still needs a decision.",
+  },
+  search: {
+    mission: "Finds and imports candidate literature from local PDFs, DOI inputs, and publisher metadata sources.",
+    inputs: ["local PDF folder", "DOI list", "Nature / Science / Elsevier metadata", "project research question"],
+    method: ["Expands search terms.", "Deduplicates candidate papers.", "Tags source availability and access state."],
+    outputs: ["paper cards", "metadata records", "source candidates", "missing-access notes"],
+    handoffs: ["Reading Bench", "Library", "Coordinator"],
+    qualityGate: "Every paper candidate needs source provenance before Reader treats it as evidence.",
+  },
+  collector: {
+    mission: "Collects raw research material and prepares it for Search and Reader processing.",
+    inputs: ["PDF folder", "manual files", "metadata exports", "DOI batches"],
+    method: ["Validates file paths.", "Groups files by project.", "Creates ingestion tasks."],
+    outputs: ["ingest queue", "file inventory", "parse error cards"],
+    handoffs: ["Search Dock", "Reading Bench"],
+    qualityGate: "No raw file should enter the workflow without project ownership and source metadata.",
+  },
+  reader: {
+    mission: "Reads papers deeply and extracts claims, methods, evidence, limitations, and citation traces.",
+    inputs: ["paper cards", "PDF text", "metadata", "project questions"],
+    method: ["Segments the paper.", "Extracts claims and evidence spans.", "Separates result, method, limitation, and speculation."],
+    outputs: ["claim candidates", "evidence spans", "method notes", "limitation notes"],
+    handoffs: ["Debate Room", "Critic Dino", "Strategy Room", "Library"],
+    qualityGate: "A claim is not usable unless it points back to source text, figure, table, or metadata trace.",
+  },
+  critic: {
+    mission: "Attacks weak reasoning before it can become strategy, experiment design, or manuscript text.",
+    inputs: ["Reader claims", "evidence spans", "methods", "statistics", "conflicting papers"],
+    method: ["Challenges controls and sample size.", "Searches for contradictions.", "Marks unsupported jumps and missing evidence."],
+    outputs: ["critic comments", "unresolved questions", "counter-evidence list", "revision request"],
+    handoffs: ["Debate Room", "Coordinator", "Strategy Room", "Leader Office"],
+    qualityGate: "Every criticism must identify the exact claim or evidence gap it is challenging.",
+  },
+  strategist: {
+    mission: "Converts approved knowledge and unresolved debate into research gaps, hypotheses, and study direction.",
+    inputs: ["Library records", "debate conclusions", "critic objections", "project goals"],
+    method: ["Scores novelty and feasibility.", "Builds competing hypotheses.", "Routes testable ideas to Experiment Bay."],
+    outputs: ["research gaps", "hypothesis cards", "strategy scores", "experiment strategy inputs"],
+    handoffs: ["Experiment Bay", "Writing Studio", "Coordinator", "Leader Office"],
+    qualityGate: "A strategy must be literature-grounded and experimentally or analytically testable.",
+  },
+  experiment: {
+    mission: "Turns hypotheses and debate outcomes into variables, controls, readouts, protocols, and risk checks.",
+    inputs: ["hypothesis cards", "strategy scores", "critic objections", "source methods", "feasibility constraints"],
+    method: ["Defines variables and controls.", "Checks readouts and failure criteria.", "Flags protocol and resource risks."],
+    outputs: ["experiment plan", "control matrix", "readout list", "risk register"],
+    handoffs: ["Strategy Room", "Leader Office", "Writing Studio", "Library"],
+    qualityGate: "An experiment plan must be falsifiable and tied back to the debate or literature gap that motivated it.",
+  },
+  librarian: {
+    mission: "Stores only approved, traceable research knowledge for later search, strategy, and writing reuse.",
+    inputs: ["Leader-approved cards", "source traces", "evidence links", "decision records"],
+    method: ["Normalizes metadata.", "Links claims to evidence and decisions.", "Blocks unsupported material from reuse."],
+    outputs: ["library records", "metadata entries", "evidence indexes", "citation-ready traces"],
+    handoffs: ["Search Dock", "Strategy Room", "Writing Studio", "Leader Office"],
+    qualityGate: "Library records must preserve provenance: source, claim, evidence, critic status, and approval decision.",
+  },
+  writer: {
+    mission: "Drafts citation-backed manuscript sections from Library-approved evidence and strategy outputs.",
+    inputs: ["library records", "approved claims", "strategy outline", "experiment plans"],
+    method: ["Builds section outlines.", "Writes only traceable claims.", "Flags missing citations or weak evidence."],
+    outputs: ["manuscript outline", "draft sections", "citation TODOs", "coherence checks"],
+    handoffs: ["Leader Office", "Library", "Strategy Room"],
+    qualityGate: "No manuscript sentence should claim more than the approved evidence can support.",
+  },
+};
+
 const quickActions = ["New Claim", "Import Paper", "Create Task"] as const;
 const runningStatuses = new Set(["running", "debating"]);
 const waitingStatuses = new Set(["queued", "waiting_for_user", "waiting_for_leader_review", "waiting_for_claim"]);
@@ -860,30 +952,122 @@ function ManuscriptScreen({ card, project }: { card?: WorkflowCardData; project?
 }
 
 function AgentsScreen({ rooms, cards }: { rooms: LaboratoryRoomData[]; cards: WorkflowCardData[] }) {
+  const [selectedRoomId, setSelectedRoomId] = useState<RoomId>("leader");
   const agents = rooms.map((room) => ({
+    roomId: room.id,
     agent: room.agent,
     name: `${room.agent[0].toUpperCase()}${room.agent.slice(1)} Dino`,
-    role: roomPurpose[room.id],
+    role: room.role,
     status: displayStatus(room.status),
     room: room.title,
-    cards: cards.filter((card) => card.currentRoom === room.id).length,
+    activeCards: cards.filter((card) => card.currentRoom === room.id),
+    assignments: room.modelAssignments ?? [],
   }));
+  const selectedAgent = agents.find((agent) => agent.roomId === selectedRoomId) ?? agents[0];
+  const profile = selectedAgent ? agentProfiles[selectedAgent.agent] : undefined;
+
   return (
     <section>
       <ScreenHeader eyebrow="Agents" title="9 Autonomous Agents" meta={<><span className="rdos-online-dot" />6 Online <b>3 Idle</b></>} />
-      <div className="rdos-agent-grid">
-        {agents.map((agent) => (
-          <article className="rdos-agent-card" key={`${agent.agent}-${agent.room}`}>
-            <img src={agentAssets[agent.agent]} alt="" />
-            <div>
-              <strong>{agent.name}</strong>
-              <span>{agent.role}</span>
+      <div className="rdos-agent-workspace">
+        <div className="rdos-agent-grid">
+          {agents.map((agent) => (
+            <button
+              className={`rdos-agent-card${selectedAgent?.roomId === agent.roomId ? " is-selected" : ""}`}
+              key={`${agent.agent}-${agent.room}`}
+              type="button"
+              onClick={() => setSelectedRoomId(agent.roomId)}
+            >
+              <img src={agentAssets[agent.agent]} alt="" />
+              <div>
+                <strong>{agent.name}</strong>
+                <span>{agent.role}</span>
+              </div>
+              <em className={agent.status.includes("debating") ? "is-live" : ""}>{agent.status}</em>
+              <p>Current Task: {agent.room}</p>
+              <footer><span>{agent.room}</span><b>{agent.activeCards.length} Cards</b></footer>
+            </button>
+          ))}
+        </div>
+
+        {selectedAgent && profile && (
+          <aside className="rdos-agent-detail">
+            <header>
+              <img src={agentAssets[selectedAgent.agent]} alt="" />
+              <div>
+                <span>Agent Detail</span>
+                <h3>{selectedAgent.name}</h3>
+                <p>{profile.mission}</p>
+              </div>
+            </header>
+
+            <div className="rdos-agent-detail-stats">
+              <div><span>Room</span><b>{selectedAgent.room}</b></div>
+              <div><span>Status</span><b>{selectedAgent.status}</b></div>
+              <div><span>Cards</span><b>{selectedAgent.activeCards.length}</b></div>
+              <div><span>Deputies</span><b>{selectedAgent.assignments.length}</b></div>
             </div>
-            <em className={agent.status.includes("debating") ? "is-live" : ""}>{agent.status}</em>
-            <p>Current Task: {agent.room}</p>
-            <footer><span>{agent.room}</span><b>{agent.cards} Cards</b></footer>
-          </article>
-        ))}
+
+            <section className="rdos-agent-section">
+              <h4>How This Agent Works</h4>
+              <ol>
+                {profile.method.map((step) => <li key={step}>{step}</li>)}
+              </ol>
+            </section>
+
+            <div className="rdos-agent-profile-grid">
+              <section className="rdos-agent-section">
+                <h4>Inputs</h4>
+                <ul>{profile.inputs.map((item) => <li key={item}>{item}</li>)}</ul>
+              </section>
+              <section className="rdos-agent-section">
+                <h4>Outputs</h4>
+                <ul>{profile.outputs.map((item) => <li key={item}>{item}</li>)}</ul>
+              </section>
+            </div>
+
+            <section className="rdos-agent-section">
+              <h4>Handoffs</h4>
+              <div className="rdos-agent-chip-row">
+                {profile.handoffs.map((handoff) => <span key={handoff}>{handoff}</span>)}
+              </div>
+            </section>
+
+            <section className="rdos-agent-section">
+              <h4>Quality Gate</h4>
+              <p>{profile.qualityGate}</p>
+            </section>
+
+            <section className="rdos-agent-section">
+              <h4>Model Deputies</h4>
+              <div className="rdos-agent-model-list">
+                {selectedAgent.assignments.map((assignment) => (
+                  <div className="rdos-agent-model" key={assignment.id}>
+                    <b>{assignment.label}</b>
+                    <span>{assignment.provider} / {assignment.model} / {assignment.mode}</span>
+                    <p>{assignment.responsibility}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rdos-agent-section">
+              <h4>Current Cards</h4>
+              {selectedAgent.activeCards.length > 0 ? (
+                <div className="rdos-agent-card-list">
+                  {selectedAgent.activeCards.slice(0, 4).map((card) => (
+                    <div key={card.id}>
+                      <b>{card.title}</b>
+                      <span>{card.type.replace(/_/g, " ")} / {displayStatus(card.status)} / {card.evidenceCount} evidence</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>No active cards in this room for the selected project.</p>
+              )}
+            </section>
+          </aside>
+        )}
       </div>
     </section>
   );

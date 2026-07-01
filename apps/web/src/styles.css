@@ -4321,11 +4321,38 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.rdos-agent-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 18px;
+  align-items: start;
+}
+
+.rdos-agent-workspace .rdos-agent-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .rdos-agent-card {
   display: grid;
   grid-template-columns: 60px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
+  width: 100%;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.rdos-agent-card:hover,
+.rdos-agent-card.is-selected {
+  background: #f8f8f8;
+  border-color: #1a1719;
+}
+
+.rdos-agent-card.is-selected {
+  box-shadow: inset 4px 0 0 #1a1719;
 }
 
 .rdos-agent-card img {
@@ -4385,6 +4412,139 @@ button {
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.rdos-agent-detail {
+  border: 1px solid #1a1719;
+  border-radius: 14px;
+  background: #fff;
+  padding: 18px;
+}
+
+.rdos-agent-detail header {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  border-bottom: 1px solid #e3e3e3;
+  padding-bottom: 14px;
+}
+
+.rdos-agent-detail header img {
+  width: 74px;
+  height: 74px;
+  border-radius: 14px;
+  background: #f7f7f7;
+  object-fit: contain;
+}
+
+.rdos-agent-detail header span,
+.rdos-agent-section h4 {
+  color: #777;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin: 0 0 7px;
+  text-transform: uppercase;
+}
+
+.rdos-agent-detail h3 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.rdos-agent-detail p {
+  color: #666;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 7px 0 0;
+}
+
+.rdos-agent-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.rdos-agent-detail-stats div,
+.rdos-agent-model,
+.rdos-agent-card-list div {
+  border: 1px solid #ededed;
+  border-radius: 10px;
+  padding: 9px 10px;
+  min-width: 0;
+}
+
+.rdos-agent-detail-stats span,
+.rdos-agent-model span,
+.rdos-agent-card-list span {
+  display: block;
+  color: #888;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.rdos-agent-detail-stats b,
+.rdos-agent-model b,
+.rdos-agent-card-list b {
+  display: block;
+  color: #1a1719;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.rdos-agent-section {
+  border-top: 1px solid #e3e3e3;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.rdos-agent-section ul,
+.rdos-agent-section ol {
+  color: #1a1719;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.rdos-agent-section li + li {
+  margin-top: 5px;
+}
+
+.rdos-agent-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rdos-agent-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.rdos-agent-chip-row span {
+  border: 1px solid #e3e3e3;
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #1a1719;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.rdos-agent-model-list,
+.rdos-agent-card-list {
+  display: grid;
+  gap: 8px;
+}
+
+.rdos-agent-model p {
+  margin-top: 5px;
 }
 
 .rdos-search-input {
