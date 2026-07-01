@@ -1095,23 +1095,23 @@ function MapScreen({
               <path className="rdos-arrow-shape" d="M0 0L9 4.5L0 9" fill="#a6a6a6" />
             </marker>
           </defs>
-          <ManualFlow d="M580 198V252" live kind="directive" label="1 Leader direction" x={572} y={224} />
-          <ManualFlow d="M650 252V198" kind="brief" label="8 Coordinator brief" x={700} y={224} />
-          <ManualFlow d="M420 343H271" live kind="task" label="2 Search assignment" x={346} y={324} />
+          <ManualFlow d="M580 198V252" live kind="directive" />
+          <ManualFlow d="M650 252V198" kind="brief" />
+          <ManualFlow d="M420 343H271" live kind="task" />
 
-          <ManualFlow d="M144 416V494" live kind="data" label="3 Papers to Reader" x={166} y={456} />
+          <ManualFlow d="M144 416V494" live kind="data" />
           <ManualFlow d="M274 580H315" live kind="data" />
           <ManualFlow d="M560 580H580" live kind="data" />
           <ManualFlow d="M825 580H845" live kind="data" />
           <ManualFlow d="M1090 580H1110" live kind="data" />
 
           <ManualFlow d="M438 494V462H585V434" kind="brief" />
-          <ManualFlow d="M703 494V452H615V434" kind="brief" label="Department briefs to Coordinator" x={560} y={452} />
+          <ManualFlow d="M703 494V452H615V434" kind="brief" />
           <ManualFlow d="M968 494V452H660V434" kind="brief" />
 
-          <ManualFlow d="M730 198V218H1015V306" kind="store" label="Approved to Library" x={890} y={218} />
-          <ManualFlow d="M1050 422V460H703V494" kind="store" label="Library reuse to Strategy" x={1005} y={460} />
-          <ManualFlow d="M1185 422V460H1205V494" kind="store" label="Library to Writing" x={1218} y={448} />
+          <ManualFlow d="M730 198V218H1015V306" kind="store" />
+          <ManualFlow d="M1050 422V460H703V494" kind="store" />
+          <ManualFlow d="M1185 422V460H1205V494" kind="store" />
         </svg>
 
         <MapInfoCards stats={stats} />
@@ -1328,38 +1328,21 @@ function ManualFlow({
   d,
   live = false,
   kind,
-  label,
-  x = 0,
-  y = 0,
 }: {
   d: string;
   live?: boolean;
   kind: "brief" | "data" | "directive" | "store" | "task";
-  label?: string;
-  x?: number;
-  y?: number;
 }) {
-  const labelWidth = label ? Math.max(82, label.length * 7 + 22) : 0;
-  const markerId = live
+  const markerId = live || kind === "directive" || kind === "task" || kind === "data"
     ? "rdos-arrow-evidence"
-    : kind === "directive"
-      ? "rdos-arrow-directive"
-      : kind === "store"
-        ? "rdos-arrow-store"
-        : "rdos-arrow-review";
+    : undefined;
   return (
     <g className={`rdos-flow-group rdos-flow-group--${kind}${live ? " is-live" : ""}`}>
       <path
         className={`rdos-flow-line rdos-flow-line--${kind}${live ? " is-live" : ""}`}
         d={d}
-        markerEnd={`url(#${markerId})`}
+        markerEnd={markerId ? `url(#${markerId})` : undefined}
       />
-      {label && (
-        <g className="rdos-flow-label" transform={`translate(${x} ${y})`}>
-          <rect x={-labelWidth / 2} y={-11} width={labelWidth} height={22} rx={11} />
-          <text x="0" y="4" textAnchor="middle">{label}</text>
-        </g>
-      )}
     </g>
   );
 }
@@ -1369,11 +1352,11 @@ function MapInfoCards({ stats }: { stats: { online: number; running: number; wai
     <>
       <aside className="rdos-map-card rdos-flow-guide-card">
         <strong>Workflow Path</strong>
-        <span><b>1</b> Leader sets direction, Coordinator assigns work</span>
-        <span><b>2</b> Search collects papers, Reader extracts evidence</span>
-        <span><b>3</b> Debate pressure-tests claims, Strategy forms hypotheses</span>
-        <span><b>4</b> Experiment designs tests, Writer drafts from approved knowledge</span>
-        <span><b>5</b> Leader-approved outputs are stored in Library</span>
+        <span><b>1</b> Leader gives direction; Coordinator routes work.</span>
+        <span><b>2</b> Search collects papers; Reader extracts evidence.</span>
+        <span><b>3</b> Debate tests claims; Strategy turns gaps into hypotheses.</span>
+        <span><b>4</b> Experiment designs validation; Writer drafts from approved evidence.</span>
+        <span><b>5</b> Leader approval moves reusable knowledge into Library.</span>
       </aside>
       <aside className="rdos-map-card rdos-legend-card">
         <strong>Legend</strong>

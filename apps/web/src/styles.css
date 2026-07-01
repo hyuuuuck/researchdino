@@ -3651,75 +3651,48 @@ button {
 .rdos-map-flow .rdos-flow-line {
   fill: none;
   stroke: #bcbcbc;
-  stroke-width: 1.7;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .rdos-map-flow .rdos-flow-line--directive {
-  stroke: #1a1719;
-  stroke-width: 2.3;
+  stroke: #2f7d5f;
+  stroke-width: 2.7;
   stroke-dasharray: none;
 }
 
 .rdos-map-flow .rdos-flow-line--brief {
-  stroke: #8d8d8d;
-  stroke-dasharray: 7 7;
+  stroke: #9c9c9c;
+  stroke-width: 1.45;
+  stroke-dasharray: 6 9;
+  opacity: 0.52;
 }
 
 .rdos-map-flow .rdos-flow-line--task {
   stroke: #2f7d5f;
-  stroke-width: 2.1;
-  stroke-dasharray: 10 8;
+  stroke-width: 2.15;
+  stroke-dasharray: none;
+  opacity: 0.88;
 }
 
 .rdos-map-flow .rdos-flow-line--data {
   stroke: #2f7d5f;
-  stroke-width: 2.3;
+  stroke-width: 3;
   stroke-dasharray: none;
 }
 
 .rdos-map-flow .rdos-flow-line--store {
-  stroke: #a6a6a6;
-  stroke-dasharray: 2 8;
+  stroke: #b7b7b7;
+  stroke-width: 1.35;
+  stroke-dasharray: 1 9;
+  opacity: 0.62;
 }
 
 .rdos-map-flow .rdos-flow-line.is-live {
   stroke: #2f7d5f;
-  stroke-width: 2.6;
-  animation: rdos-flow 1.2s linear infinite;
-}
-
-.rdos-flow-label rect {
-  fill: rgba(255, 255, 255, 0.92);
-  stroke: #dcdcdc;
-  stroke-width: 1;
-}
-
-.rdos-flow-label text {
-  fill: #6b6b6b;
-  font-family: "Hanken Grotesk", Inter, system-ui, sans-serif;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.rdos-flow-group--brief .rdos-flow-label rect,
-.rdos-flow-group--store .rdos-flow-label rect {
-  fill: rgba(255, 255, 255, 0.86);
-}
-
-.rdos-flow-group--brief .rdos-flow-label text,
-.rdos-flow-group--store .rdos-flow-label text {
-  fill: #747474;
-}
-
-.rdos-flow-group.is-live .rdos-flow-label rect {
-  fill: #eef7f3;
-  stroke: #2f7d5f;
-}
-
-.rdos-flow-group.is-live .rdos-flow-label text {
-  fill: #2f7d5f;
+  filter: drop-shadow(0 0 2px rgba(47, 125, 95, 0.32));
 }
 
 .rdos-room-node {
