@@ -24,8 +24,10 @@ from .schemas import (
     PaperFileRecord,
     ResearchProject,
     WorkflowCard,
+    WorkflowCardCreateRequest,
+    WorkflowCardPatchRequest,
 )
-from .storage import DB_PATH, get_json, init_db, list_json, put_json
+from .storage import DB_PATH, delete_json, get_json, init_db, list_json, put_json
 
 
 DEMO_ROOM_MODEL_ASSIGNMENTS = {
@@ -65,6 +67,65 @@ def current_iso_time() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+ROOM_AGENT_MAP = {
+    "coordinator": "coordinator",
+    "collection": "search",
+    "reading": "reader",
+    "debate": "critic",
+    "leader": "leader",
+    "library": "librarian",
+    "strategy": "strategist",
+    "experiment": "experiment",
+    "writing": "writer",
+}
+
+
+STATUS_PROGRESS_MAP = {
+    "idle": 12,
+    "waiting_for_claim": 18,
+    "queued": 18,
+    "running": 48,
+    "debating": 62,
+    "waiting_for_user": 82,
+    "waiting_for_leader_review": 82,
+    "needs_more_evidence": 70,
+    "approved": 100,
+    "stored_in_library": 100,
+    "archived": 100,
+    "rejected": 100,
+    "failed": 100,
+}
+
+
+STATUS_APPROVAL_MAP = {
+    "approved": "approved",
+    "stored_in_library": "stored_in_library",
+    "rejected": "rejected",
+    "waiting_for_user": "pending_review",
+    "waiting_for_leader_review": "pending_review",
+    "needs_more_evidence": "needs_revision",
+}
+
+
+def create_card_log(card: dict, level: str, title: str, message: str) -> None:
+    log_id = f"log-{uuid4().hex[:12]}"
+    put_json(
+        "agent_logs",
+        log_id,
+        {
+            "id": log_id,
+            "projectId": card.get("projectId", "project-autophagy"),
+            "time": current_clock_time(),
+            "agent": card.get("lastAgent", card.get("assignedAgent", "coordinator")),
+            "room": card.get("currentRoom", "coordinator"),
+            "level": level,
+            "title": title,
+            "message": message,
+            "relatedCardId": card["id"],
+        },
+    )
+
+
 @app.get("/health")
 def health() -> dict[str, bool | str]:
     return {"ok": True, "service": "researchdino-api"}
@@ -95,6 +156,84 @@ def projects() -> list[ResearchProject]:
 @app.get("/cards", response_model=list[WorkflowCard])
 def cards() -> list[WorkflowCard]:
     return [WorkflowCard(**card) for card in list_json("cards")]
+
+
+@app.post("/cards", response_model=WorkflowCard)
+def create_card(request: WorkflowCardCreateRequest) -> WorkflowCard:
+    title = request.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Card title is required")
+
+    agent = ROOM_AGENT_MAP[request.currentRoom]
+    card_id = f"task-{uuid4().hex[:12]}"
+    card = {
+        "id": card_id,
+        "projectId": request.projectId,
+        "title": title,
+        "type": request.type,
+        "currentRoom": request.currentRoom,
+        "status": "queued",
+        "progress": STATUS_PROGRESS_MAP["queued"],
+        "assignedAgent": agent,
+        "lastAgent": agent,
+        "lastUpdated": current_clock_time(),
+        "requiresUserReview": False,
+        "sourcePaperId": None,
+        "evidenceCount": 0,
+        "approvalStatus": "draft",
+        "summary": request.summary.strip() or f"Manual task created for {request.currentRoom.replace('_', ' ')}.",
+        "details": request.details or {"Created from": "Task Board"},
+    }
+    put_json("cards", card_id, card)
+    create_card_log(card, "info", "Task created", f"Manual task added to {request.currentRoom}: {title}")
+    return WorkflowCard(**card)
+
+
+@app.patch("/cards/{card_id}", response_model=WorkflowCard)
+def patch_card(card_id: str, request: WorkflowCardPatchRequest) -> WorkflowCard:
+    card = get_json("cards", card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="Workflow card not found")
+
+    update = request.model_dump(exclude_unset=True)
+    old_status = card["status"]
+    old_room = card["currentRoom"]
+
+    for key, value in update.items():
+        if value is not None:
+            card[key] = value
+
+    if "currentRoom" in update and "assignedAgent" not in update:
+        card["assignedAgent"] = ROOM_AGENT_MAP[card["currentRoom"]]
+    if "status" in update:
+        card["progress"] = update.get("progress", STATUS_PROGRESS_MAP.get(card["status"], card.get("progress", 0)))
+        card["approvalStatus"] = update.get("approvalStatus", STATUS_APPROVAL_MAP.get(card["status"], card.get("approvalStatus", "draft")))
+        card["requiresUserReview"] = update.get(
+            "requiresUserReview",
+            card["status"] in {"waiting_for_user", "waiting_for_leader_review", "needs_more_evidence"},
+        )
+    card["lastAgent"] = update.get("lastAgent", card.get("assignedAgent", "coordinator"))
+    card["lastUpdated"] = current_clock_time()
+
+    put_json("cards", card_id, card)
+    if card["status"] != old_status or card["currentRoom"] != old_room:
+        create_card_log(
+            card,
+            "info",
+            "Task moved",
+            f"{card['title']} moved from {old_room}/{old_status} to {card['currentRoom']}/{card['status']}.",
+        )
+    return WorkflowCard(**card)
+
+
+@app.delete("/cards/{card_id}")
+def delete_card(card_id: str) -> dict[str, bool | str]:
+    card = get_json("cards", card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="Workflow card not found")
+    deleted = delete_json("cards", card_id)
+    create_card_log(card, "warning", "Task deleted", f"Task removed from board: {card['title']}")
+    return {"ok": deleted, "id": card_id}
 
 
 @app.get("/agent-logs", response_model=list[AgentLogEntry])

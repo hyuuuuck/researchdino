@@ -165,6 +165,29 @@ class WorkflowCard(BaseModel):
     details: dict[str, str | int | list[str]]
 
 
+class WorkflowCardCreateRequest(BaseModel):
+    projectId: str = "project-autophagy"
+    title: str
+    type: CardType = "review"
+    currentRoom: RoomId = "coordinator"
+    summary: str = ""
+    details: dict[str, str | int | list[str]] = Field(default_factory=dict)
+
+
+class WorkflowCardPatchRequest(BaseModel):
+    title: str | None = None
+    type: CardType | None = None
+    currentRoom: RoomId | None = None
+    status: WorkflowStatus | None = None
+    progress: int | None = Field(default=None, ge=0, le=100)
+    assignedAgent: AgentVariant | None = None
+    lastAgent: AgentVariant | None = None
+    requiresUserReview: bool | None = None
+    approvalStatus: ApprovalStatus | None = None
+    summary: str | None = None
+    details: dict[str, str | int | list[str]] | None = None
+
+
 class AgentLogEntry(BaseModel):
     id: str
     projectId: str = "project-autophagy"

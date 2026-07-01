@@ -1,25 +1,32 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import {
+  createWorkflowCard,
+  deleteWorkflowCard,
   getDemoResearchLabState,
   loadResearchLabState,
   registerIngestFolder,
   runAgentAction,
   scanIngestFolder,
   submitLeaderDecision,
+  updateWorkflowCard,
   type AgentActionValue,
+  type CreateWorkflowCardInput,
   type IngestScanResult,
   type LeaderDecisionValue,
   type ResearchDataMode,
   type ResearchLabState,
+  type UpdateWorkflowCardInput,
 } from "../../api/researchApi";
 import type {
   AgentLogEntry,
   AgentVariant,
+  CardType,
   LaboratoryRoomData,
   PaperSourceConnector,
   ResearchProjectData,
   RoomId,
   WorkflowCardData,
+  WorkflowStatus,
 } from "../../types/research";
 
 type ScreenId = "map" | "debate" | "reader" | "report" | "agents" | "library" | "reports" | "projects" | "tasks" | "settings";
@@ -89,6 +96,40 @@ const roomPurpose: Record<RoomId, string> = {
   experiment: "Design & validate experiments",
   writing: "Draft & refine manuscripts",
 };
+
+const roomAgentMap: Record<RoomId, AgentVariant> = {
+  coordinator: "coordinator",
+  collection: "search",
+  reading: "reader",
+  debate: "critic",
+  leader: "leader",
+  library: "librarian",
+  strategy: "strategist",
+  experiment: "experiment",
+  writing: "writer",
+};
+
+const taskTypeOptions: Array<{ value: CardType; label: string }> = [
+  { value: "review", label: "Review" },
+  { value: "paper", label: "Paper" },
+  { value: "claim", label: "Claim" },
+  { value: "claim_debate", label: "Claim Debate" },
+  { value: "hypothesis", label: "Hypothesis" },
+  { value: "experiment", label: "Experiment" },
+  { value: "manuscript", label: "Manuscript" },
+];
+
+const taskRoomOptions: Array<{ value: RoomId; label: string }> = [
+  { value: "coordinator", label: "Coordinator" },
+  { value: "collection", label: "Search Dock" },
+  { value: "reading", label: "Reading Bench" },
+  { value: "debate", label: "Debate Room" },
+  { value: "strategy", label: "Strategy Room" },
+  { value: "experiment", label: "Experiment Bay" },
+  { value: "leader", label: "Leader Office" },
+  { value: "library", label: "Library" },
+  { value: "writing", label: "Writing Studio" },
+];
 
 type AgentProfile = {
   mission: string;
@@ -213,6 +254,27 @@ function priorityLabel(card: WorkflowCardData, index: number) {
 
 function displayStatus(status: string) {
   return status.replace(/_/g, " ");
+}
+
+function currentDisplayTime() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function progressForStatus(status: WorkflowStatus) {
+  if (status === "queued" || status === "idle" || status === "waiting_for_claim") return 18;
+  if (status === "running") return 48;
+  if (status === "debating") return 62;
+  if (status === "waiting_for_user" || status === "waiting_for_leader_review" || status === "needs_more_evidence") return 82;
+  return 100;
+}
+
+function approvalForStatus(status: WorkflowStatus): WorkflowCardData["approvalStatus"] {
+  if (status === "approved") return "approved";
+  if (status === "stored_in_library") return "stored_in_library";
+  if (status === "rejected") return "rejected";
+  if (status === "waiting_for_user" || status === "waiting_for_leader_review") return "pending_review";
+  if (status === "needs_more_evidence") return "needs_revision";
+  return "draft";
 }
 
 function firstCard(cards: WorkflowCardData[], predicate: (card: WorkflowCardData) => boolean) {
@@ -386,6 +448,107 @@ export function ResearchDinoOS() {
     }
   }
 
+  async function handleCreateTask(input: CreateWorkflowCardInput) {
+    const title = input.title.trim();
+    if (!title) {
+      setActionMessage("Task title is required.");
+      return;
+    }
+    setBusyAction("task-create");
+    setActionMessage("");
+    try {
+      if (dataMode === "api") {
+        await createWorkflowCard({ ...input, title });
+        await refreshState();
+      } else {
+        const agent = roomAgentMap[input.currentRoom];
+        const card: WorkflowCardData = {
+          id: `task-${Date.now()}`,
+          projectId: input.projectId,
+          title,
+          type: input.type,
+          currentRoom: input.currentRoom,
+          status: "queued",
+          progress: progressForStatus("queued"),
+          assignedAgent: agent,
+          lastAgent: agent,
+          lastUpdated: currentDisplayTime(),
+          requiresUserReview: false,
+          evidenceCount: 0,
+          approvalStatus: "draft",
+          summary: input.summary?.trim() || `Manual task created for ${input.currentRoom}.`,
+          details: { "Created from": "Task Board" },
+        };
+        setCards((current) => [card, ...current]);
+      }
+      setActionMessage(`Task added: ${title}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setActionMessage(message);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  async function handlePatchTask(card: WorkflowCardData, patch: UpdateWorkflowCardInput) {
+    setBusyAction(`task-update:${card.id}`);
+    setActionMessage("");
+    try {
+      if (dataMode === "api") {
+        await updateWorkflowCard(card.id, patch);
+        await refreshState();
+      } else {
+        setCards((current) =>
+          current.map((item) => {
+            if (item.id !== card.id) return item;
+            const nextStatus = patch.status ?? item.status;
+            const nextRoom = patch.currentRoom ?? item.currentRoom;
+            return {
+              ...item,
+              ...patch,
+              currentRoom: nextRoom,
+              status: nextStatus,
+              assignedAgent: roomAgentMap[nextRoom],
+              lastAgent: roomAgentMap[nextRoom],
+              progress: patch.progress ?? progressForStatus(nextStatus),
+              requiresUserReview:
+                patch.requiresUserReview ??
+                ["waiting_for_user", "waiting_for_leader_review", "needs_more_evidence"].includes(nextStatus),
+              approvalStatus: approvalForStatus(nextStatus),
+              lastUpdated: currentDisplayTime(),
+            };
+          }),
+        );
+      }
+      setActionMessage(`Task updated: ${card.title}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setActionMessage(message);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  async function handleDeleteTask(card: WorkflowCardData) {
+    if (!window.confirm(`Delete task "${card.title}"?`)) return;
+    setBusyAction(`task-delete:${card.id}`);
+    setActionMessage("");
+    try {
+      if (dataMode === "api") {
+        await deleteWorkflowCard(card.id);
+        await refreshState();
+      } else {
+        setCards((current) => current.filter((item) => item.id !== card.id));
+      }
+      setActionMessage(`Task removed: ${card.title}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setActionMessage(message);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
   return (
     <main className="rdos-canvas">
       <div className="rdos-shell">
@@ -533,7 +696,16 @@ export function ResearchDinoOS() {
                 onOpenMap={() => setScreen("map")}
               />
             )}
-            {screen === "tasks" && <TasksScreen cards={projectCards} project={activeProject} />}
+            {screen === "tasks" && (
+              <TasksScreen
+                cards={projectCards}
+                project={activeProject}
+                busy={Boolean(busyAction)}
+                onCreate={handleCreateTask}
+                onPatch={handlePatchTask}
+                onDelete={handleDeleteTask}
+              />
+            )}
             {screen === "settings" && (
               <SettingsScreen
                 dataMode={dataMode}
@@ -1352,27 +1524,118 @@ function ProjectsScreen({
   );
 }
 
-function TasksScreen({ cards, project }: { cards: WorkflowCardData[]; project?: ResearchProjectData }) {
+type TaskColumnId = "waiting" | "progress" | "review" | "done";
+
+const taskColumnOrder: TaskColumnId[] = ["waiting", "progress", "review", "done"];
+
+function taskColumnForCard(card: WorkflowCardData): TaskColumnId {
+  if (completeStatuses.has(card.status)) return "done";
+  if (card.requiresUserReview || ["waiting_for_user", "waiting_for_leader_review", "needs_more_evidence"].includes(card.status)) return "review";
+  if (runningStatuses.has(card.status)) return "progress";
+  return "waiting";
+}
+
+function patchForTaskColumn(card: WorkflowCardData, column: TaskColumnId): UpdateWorkflowCardInput {
+  if (column === "waiting") {
+    return { status: "queued", requiresUserReview: false, progress: progressForStatus("queued") };
+  }
+  if (column === "progress") {
+    const status = card.currentRoom === "debate" ? "debating" : "running";
+    return { status, requiresUserReview: false, progress: progressForStatus(status) };
+  }
+  if (column === "review") {
+    return { status: "waiting_for_user", requiresUserReview: true, progress: progressForStatus("waiting_for_user") };
+  }
+  return { status: "approved", requiresUserReview: false, progress: progressForStatus("approved") };
+}
+
+function TasksScreen({
+  cards,
+  project,
+  busy,
+  onCreate,
+  onPatch,
+  onDelete,
+}: {
+  cards: WorkflowCardData[];
+  project?: ResearchProjectData;
+  busy: boolean;
+  onCreate: (input: CreateWorkflowCardInput) => void;
+  onPatch: (card: WorkflowCardData, patch: UpdateWorkflowCardInput) => void;
+  onDelete: (card: WorkflowCardData) => void;
+}) {
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftRoom, setDraftRoom] = useState<RoomId>("coordinator");
+  const [draftType, setDraftType] = useState<CardType>("review");
+  const [draftSummary, setDraftSummary] = useState("");
   const columns = [
-    { title: "Waiting", cards: cards.filter((card) => waitingStatuses.has(card.status)).slice(0, 3) },
-    { title: "In Progress", cards: cards.filter((card) => runningStatuses.has(card.status)).slice(0, 4) },
-    { title: "Review", cards: cards.filter((card) => card.requiresUserReview).slice(0, 2) },
-    { title: "Done", cards: cards.filter((card) => completeStatuses.has(card.status)).slice(0, 3) },
+    { id: "waiting" as const, title: "Waiting", cards: cards.filter((card) => taskColumnForCard(card) === "waiting") },
+    { id: "progress" as const, title: "In Progress", cards: cards.filter((card) => taskColumnForCard(card) === "progress") },
+    { id: "review" as const, title: "Review", cards: cards.filter((card) => taskColumnForCard(card) === "review") },
+    { id: "done" as const, title: "Done", cards: cards.filter((card) => taskColumnForCard(card) === "done") },
   ];
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onCreate({
+      projectId: project?.id ?? defaultProjectId,
+      title: draftTitle,
+      type: draftType,
+      currentRoom: draftRoom,
+      summary: draftSummary,
+    });
+    setDraftTitle("");
+    setDraftSummary("");
+  }
+
+  function moveCard(card: WorkflowCardData, direction: -1 | 1) {
+    const currentIndex = taskColumnOrder.indexOf(taskColumnForCard(card));
+    const nextColumn = taskColumnOrder[currentIndex + direction];
+    if (!nextColumn) return;
+    onPatch(card, patchForTaskColumn(card, nextColumn));
+  }
+
   return (
     <section>
       <ScreenHeader eyebrow="Tasks" title="Task Board" meta={<span>{project?.title ?? "Research Project"} - {cards.length} tasks</span>} />
+      <form className="rdos-task-create" onSubmit={handleSubmit}>
+        <input
+          value={draftTitle}
+          onChange={(event) => setDraftTitle(event.target.value)}
+          placeholder="Add task title..."
+          disabled={busy}
+        />
+        <select value={draftRoom} onChange={(event) => setDraftRoom(event.target.value as RoomId)} disabled={busy}>
+          {taskRoomOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <select value={draftType} onChange={(event) => setDraftType(event.target.value as CardType)} disabled={busy}>
+          {taskTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <input
+          value={draftSummary}
+          onChange={(event) => setDraftSummary(event.target.value)}
+          placeholder="Short note..."
+          disabled={busy}
+        />
+        <button type="submit" disabled={busy || !draftTitle.trim()}>Add Task</button>
+      </form>
       <div className="rdos-kanban">
         {columns.map((column) => (
-          <section className="rdos-kanban-column" key={column.title}>
+          <section className="rdos-kanban-column" key={column.id}>
             <h3>{column.title} <span>{column.cards.length}</span></h3>
             {column.cards.map((card, index) => (
-              <article className={`rdos-task-card${column.title === "Done" ? " is-done" : ""}`} key={card.id}>
+              <article className={`rdos-task-card${column.id === "done" ? " is-done" : ""}`} key={card.id}>
                 <div><b>{card.currentRoom}</b><em className={`priority-${priorityLabel(card, index).toLowerCase()}`}>{priorityLabel(card, index)}</em></div>
                 <strong>{card.title}</strong>
                 <footer><img src={agentAssets[card.assignedAgent]} alt="" />{card.assignedAgent}<span>{card.status === "debating" ? "Live" : card.requiresUserReview ? "User" : ""}</span></footer>
+                <div className="rdos-task-actions">
+                  <button type="button" disabled={busy || column.id === "waiting"} onClick={() => moveCard(card, -1)}>Back</button>
+                  <button type="button" disabled={busy || column.id === "done"} onClick={() => moveCard(card, 1)}>Next</button>
+                  <button className="is-danger" type="button" disabled={busy} onClick={() => onDelete(card)}>Delete</button>
+                </div>
               </article>
             ))}
+            {column.cards.length === 0 && <p className="rdos-kanban-empty">No tasks here.</p>}
           </section>
         ))}
       </div>

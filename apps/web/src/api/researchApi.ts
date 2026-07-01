@@ -1,5 +1,5 @@
 import { agentLogs, initialWorkflowCards, laboratoryRooms, researchProjects } from "../data/demoResearchLab";
-import type { AgentLogEntry, LaboratoryRoomData, ResearchProjectData, WorkflowCardData } from "../types/research";
+import type { AgentLogEntry, CardType, LaboratoryRoomData, ResearchProjectData, RoomId, WorkflowCardData, WorkflowStatus } from "../types/research";
 
 export type ResearchDataMode = "demo" | "api";
 export type LeaderDecisionValue = "approved" | "rejected" | "needs_revision" | "stored_in_library";
@@ -36,6 +36,21 @@ export interface AgentActionResult {
   updatedCardIds: string[];
   createdCardIds: string[];
   message: string;
+}
+
+export interface CreateWorkflowCardInput {
+  projectId: string;
+  title: string;
+  type: CardType;
+  currentRoom: RoomId;
+  summary?: string;
+}
+
+export interface UpdateWorkflowCardInput {
+  status?: WorkflowStatus;
+  currentRoom?: RoomId;
+  requiresUserReview?: boolean;
+  progress?: number;
 }
 
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
@@ -134,5 +149,37 @@ export async function runAgentAction(
   return fetchJson<AgentActionResult>("/agent-actions", {
     method: "POST",
     body: JSON.stringify({ cardId, action }),
+  });
+}
+
+export async function createWorkflowCard(input: CreateWorkflowCardInput): Promise<WorkflowCardData> {
+  if (!configuredApiBaseUrl) {
+    throw new Error("No API base URL is configured.");
+  }
+
+  return fetchJson<WorkflowCardData>("/cards", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateWorkflowCard(cardId: string, input: UpdateWorkflowCardInput): Promise<WorkflowCardData> {
+  if (!configuredApiBaseUrl) {
+    throw new Error("No API base URL is configured.");
+  }
+
+  return fetchJson<WorkflowCardData>(`/cards/${cardId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteWorkflowCard(cardId: string): Promise<void> {
+  if (!configuredApiBaseUrl) {
+    throw new Error("No API base URL is configured.");
+  }
+
+  await fetchJson(`/cards/${cardId}`, {
+    method: "DELETE",
   });
 }

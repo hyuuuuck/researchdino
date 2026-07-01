@@ -81,6 +81,12 @@ def put_json(table: str, item_id: str, payload: dict[str, Any]) -> None:
         upsert_json(connection, table, item_id, payload)
 
 
+def delete_json(table: str, item_id: str) -> bool:
+    with connect() as connection:
+        cursor = connection.execute(f"DELETE FROM {table} WHERE id = ?", (item_id,))
+        return cursor.rowcount > 0
+
+
 def upsert_json(
     connection: sqlite3.Connection,
     table: str,
