@@ -3,7 +3,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from .demo_data import DEMO_CARDS, DEMO_LOGS, DEMO_PROJECTS, DEMO_ROOMS
+from .demo_data import DEMO_CARDS, DEMO_LAB_INSTANCES, DEMO_LOGS, DEMO_PROJECTS, DEMO_ROOMS
 
 
 APP_DIR = Path(__file__).resolve().parents[1]
@@ -12,6 +12,7 @@ DB_PATH = DATA_DIR / "researchdino.sqlite3"
 
 TABLES = {
     "projects": DEMO_PROJECTS,
+    "lab_instances": DEMO_LAB_INSTANCES,
     "rooms": DEMO_ROOMS,
     "cards": DEMO_CARDS,
     "agent_logs": DEMO_LOGS,

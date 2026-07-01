@@ -1,5 +1,15 @@
-import { agentLogs, initialWorkflowCards, laboratoryRooms, researchProjects } from "../data/demoResearchLab";
-import type { AgentLogEntry, CardType, LaboratoryRoomData, ResearchProjectData, RoomId, WorkflowCardData, WorkflowStatus } from "../types/research";
+import { agentLogs, initialWorkflowCards, labInstances, laboratoryRooms, researchProjects } from "../data/demoResearchLab";
+import type {
+  AgentLogEntry,
+  CardType,
+  LabInstanceData,
+  LabMode,
+  LaboratoryRoomData,
+  ResearchProjectData,
+  RoomId,
+  WorkflowCardData,
+  WorkflowStatus,
+} from "../types/research";
 
 export type ResearchDataMode = "demo" | "api";
 export type LeaderDecisionValue = "approved" | "rejected" | "needs_revision" | "stored_in_library";
@@ -7,6 +17,7 @@ export type AgentActionValue = "run_reader" | "run_debate" | "design_experiment"
 
 export interface ResearchLabState {
   projects: ResearchProjectData[];
+  labInstances: LabInstanceData[];
   rooms: LaboratoryRoomData[];
   cards: WorkflowCardData[];
   logs: AgentLogEntry[];
@@ -16,6 +27,7 @@ export interface ResearchLabState {
 export interface IngestFolderRecord {
   id: string;
   projectId: string;
+  labId?: string;
   path: string;
   registeredAt: string;
   exists: boolean;
@@ -40,6 +52,7 @@ export interface AgentActionResult {
 
 export interface CreateWorkflowCardInput {
   projectId: string;
+  labId?: string;
   title: string;
   type: CardType;
   currentRoom: RoomId;
@@ -47,10 +60,20 @@ export interface CreateWorkflowCardInput {
 }
 
 export interface UpdateWorkflowCardInput {
+  labId?: string;
   status?: WorkflowStatus;
   currentRoom?: RoomId;
   requiresUserReview?: boolean;
   progress?: number;
+}
+
+export interface PatchLabInstanceInput {
+  projectId?: string;
+  mode?: LabMode;
+  status?: WorkflowStatus;
+  enabled?: boolean;
+  label?: string;
+  summary?: string;
 }
 
 export interface CreateResearchProjectInput {
@@ -69,6 +92,7 @@ export function getDemoResearchLabState(): ResearchLabState {
   return {
     rooms: laboratoryRooms,
     projects: researchProjects,
+    labInstances,
     cards: initialWorkflowCards,
     logs: agentLogs,
     mode: "demo",
@@ -96,8 +120,9 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     return getDemoResearchLabState();
   }
 
-  const [projects, rooms, cards, logs] = await Promise.all([
+  const [projects, labInstances, rooms, cards, logs] = await Promise.all([
     fetchJson<ResearchProjectData[]>("/projects"),
+    fetchJson<LabInstanceData[]>("/lab-instances"),
     fetchJson<LaboratoryRoomData[]>("/rooms"),
     fetchJson<WorkflowCardData[]>("/cards"),
     fetchJson<AgentLogEntry[]>("/agent-logs"),
@@ -105,6 +130,7 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
 
   return {
     projects,
+    labInstances,
     rooms,
     cards,
     logs,
@@ -127,14 +153,14 @@ export async function submitLeaderDecision(
   });
 }
 
-export async function registerIngestFolder(path: string, projectId: string): Promise<IngestFolderRecord> {
+export async function registerIngestFolder(path: string, projectId: string, labId?: string): Promise<IngestFolderRecord> {
   if (!configuredApiBaseUrl) {
     throw new Error("No API base URL is configured.");
   }
 
   return fetchJson<IngestFolderRecord>("/ingest/folder", {
     method: "POST",
-    body: JSON.stringify({ path, projectId }),
+    body: JSON.stringify({ path, projectId, labId }),
   });
 }
 
@@ -201,6 +227,17 @@ export async function createResearchProject(input: CreateResearchProjectInput): 
 
   return fetchJson<ResearchProjectData>("/projects", {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function patchLabInstance(labId: string, input: PatchLabInstanceInput): Promise<LabInstanceData> {
+  if (!configuredApiBaseUrl) {
+    throw new Error("No API base URL is configured.");
+  }
+
+  return fetchJson<LabInstanceData>(`/lab-instances/${labId}`, {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }

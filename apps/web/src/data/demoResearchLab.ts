@@ -1,4 +1,4 @@
-import type { AgentLogEntry, LaboratoryRoomData, ResearchProjectData, WorkflowCardData } from "../types/research";
+import type { AgentLogEntry, LabInstanceData, LaboratoryRoomData, ResearchProjectData, WorkflowCardData } from "../types/research";
 
 const localOllamaModel = "local-research-dino";
 const localOllamaModelRef = "f0ee18320b71441183a82f5f4377cc81...";
@@ -120,6 +120,42 @@ export const researchProjects: ResearchProjectData[] = [
     status: "active",
     sourceNote: "Mission reports and aerospace papers",
     lead: "Space Systems Deputy",
+    createdAt: "2026-07-01",
+  },
+];
+
+export const labInstances: LabInstanceData[] = [
+  {
+    id: "lab-alpha",
+    name: "Lab A",
+    label: "Primary Full Lab",
+    projectId: "project-autophagy",
+    mode: "full",
+    status: "running",
+    summary: "Runs the full Search -> Reader -> Debate -> Strategy -> Experiment -> Writer workflow for one research program.",
+    enabled: true,
+    createdAt: "2026-07-01",
+  },
+  {
+    id: "lab-beta",
+    name: "Lab B",
+    label: "Parallel Strategy Lab",
+    projectId: "project-layered-materials",
+    mode: "strategy",
+    status: "running",
+    summary: "Can run the same topic in parallel or hold a separate research program with its own task stream.",
+    enabled: true,
+    createdAt: "2026-07-01",
+  },
+  {
+    id: "lab-gamma",
+    name: "Lab C",
+    label: "Experiment/Writing Lab",
+    projectId: "project-orbital-systems",
+    mode: "experiment",
+    status: "queued",
+    summary: "Handles a third parallel topic, or can be assigned back to the active project for more throughput.",
+    enabled: true,
     createdAt: "2026-07-01",
   },
 ];

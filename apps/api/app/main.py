@@ -17,6 +17,8 @@ from .schemas import (
     IngestFolderRecord,
     IngestFolderRequest,
     IngestScanResult,
+    LabInstance,
+    LabInstancePatchRequest,
     LaboratoryRoom,
     LeaderDecisionRecord,
     LeaderDecisionRequest,
@@ -116,6 +118,7 @@ def create_card_log(card: dict, level: str, title: str, message: str) -> None:
         {
             "id": log_id,
             "projectId": card.get("projectId", "project-autophagy"),
+            "labId": card.get("labId"),
             "time": current_clock_time(),
             "agent": card.get("lastAgent", card.get("assignedAgent", "coordinator")),
             "room": card.get("currentRoom", "coordinator"),
@@ -176,6 +179,26 @@ def create_project(request: ResearchProjectCreateRequest) -> ResearchProject:
     return ResearchProject(**project)
 
 
+@app.get("/lab-instances", response_model=list[LabInstance])
+def lab_instances() -> list[LabInstance]:
+    return [LabInstance(**lab) for lab in list_json("lab_instances")]
+
+
+@app.patch("/lab-instances/{lab_id}", response_model=LabInstance)
+def patch_lab_instance(lab_id: str, request: LabInstancePatchRequest) -> LabInstance:
+    lab = get_json("lab_instances", lab_id)
+    if lab is None:
+        raise HTTPException(status_code=404, detail="Lab instance not found")
+
+    update = request.model_dump(exclude_unset=True)
+    for key, value in update.items():
+        if value is not None:
+            lab[key] = value
+
+    put_json("lab_instances", lab_id, lab)
+    return LabInstance(**lab)
+
+
 @app.get("/cards", response_model=list[WorkflowCard])
 def cards() -> list[WorkflowCard]:
     return [WorkflowCard(**card) for card in list_json("cards")]
@@ -192,6 +215,7 @@ def create_card(request: WorkflowCardCreateRequest) -> WorkflowCard:
     card = {
         "id": card_id,
         "projectId": request.projectId,
+        "labId": request.labId,
         "title": title,
         "type": request.type,
         "currentRoom": request.currentRoom,
@@ -292,6 +316,7 @@ def register_ingest_folder(request: IngestFolderRequest) -> IngestFolderRecord:
     record = {
         "id": "active",
         "projectId": request.projectId,
+        "labId": request.labId,
         "path": str(folder),
         "registeredAt": current_iso_time(),
         "exists": folder.is_dir(),
@@ -326,11 +351,14 @@ def scan_ingest_folder() -> IngestScanResult:
         raise HTTPException(status_code=400, detail="Registered ingest folder does not exist")
 
     project_id = record.get("projectId", "project-autophagy")
+    lab_id = record.get("labId")
     paper_records, card_records, text_records = scan_pdf_folder(folder, project_id=project_id)
 
     for paper in paper_records:
+        paper["labId"] = lab_id
         put_json("paper_files", paper["id"], paper)
     for card in card_records:
+        card["labId"] = lab_id
         put_json("cards", card["id"], card)
     for text in text_records:
         put_json("paper_texts", text["id"], text)
@@ -350,6 +378,7 @@ def scan_ingest_folder() -> IngestScanResult:
         {
             "id": log_id,
             "projectId": project_id,
+            "labId": lab_id,
             "time": current_clock_time(),
             "agent": "collector",
             "room": "collection",
@@ -388,6 +417,7 @@ def create_leader_decision(request: LeaderDecisionRequest) -> LeaderDecisionReco
     record = {
         "id": decision_id,
         "projectId": card.get("projectId", "project-autophagy"),
+        "labId": card.get("labId"),
         "cardId": request.cardId,
         "decision": request.decision,
         "reason": request.reason.strip(),
@@ -414,6 +444,7 @@ def create_leader_decision(request: LeaderDecisionRequest) -> LeaderDecisionReco
         {
             "id": log_id,
             "projectId": card.get("projectId", "project-autophagy"),
+            "labId": card.get("labId"),
             "time": current_clock_time(),
             "agent": "leader",
             "room": "leader",
@@ -432,6 +463,7 @@ def create_leader_decision(request: LeaderDecisionRequest) -> LeaderDecisionReco
             {
                 "id": entry_id,
                 "projectId": card.get("projectId", "project-autophagy"),
+                "labId": card.get("labId"),
                 "title": card["title"],
                 "summary": card["summary"],
                 "sourceCardId": card["id"],

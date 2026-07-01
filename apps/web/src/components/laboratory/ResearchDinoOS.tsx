@@ -5,6 +5,7 @@ import {
   deleteWorkflowCard,
   getDemoResearchLabState,
   loadResearchLabState,
+  patchLabInstance,
   registerIngestFolder,
   runAgentAction,
   scanIngestFolder,
@@ -15,6 +16,7 @@ import {
   type CreateWorkflowCardInput,
   type IngestScanResult,
   type LeaderDecisionValue,
+  type PatchLabInstanceInput,
   type ResearchDataMode,
   type ResearchLabState,
   type UpdateWorkflowCardInput,
@@ -23,6 +25,9 @@ import type {
   AgentLogEntry,
   AgentVariant,
   CardType,
+  LabInstanceData,
+  LabMode,
+  LabParallelMode,
   LaboratoryRoomData,
   PaperSourceConnector,
   ResearchProjectData,
@@ -337,10 +342,48 @@ function belongsToProject(item: { projectId?: string }, projectId: string) {
   return (item.projectId ?? defaultProjectId) === projectId;
 }
 
+function defaultLabIdForProject(projectId?: string) {
+  if (projectId === "project-layered-materials") return "lab-beta";
+  if (projectId === "project-orbital-systems") return "lab-gamma";
+  return "lab-alpha";
+}
+
+function labIdForItem(item: { projectId?: string; labId?: string }) {
+  return item.labId ?? defaultLabIdForProject(item.projectId);
+}
+
+function belongsToLab(item: { projectId?: string; labId?: string }, labId: string) {
+  return labIdForItem(item) === labId;
+}
+
+function belongsToLabInstance(item: { projectId?: string; labId?: string }, lab: LabInstanceData | undefined) {
+  if (!lab) return belongsToLab(item, "lab-alpha");
+  if (item.labId) return item.labId === lab.id;
+  return belongsToProject(item, lab.projectId);
+}
+
+function nextProjectId(projects: ResearchProjectData[], currentProjectId: string, offset = 1) {
+  if (projects.length === 0) return defaultProjectId;
+  const currentIndex = Math.max(0, projects.findIndex((project) => project.id === currentProjectId));
+  return projects[(currentIndex + offset) % projects.length]?.id ?? projects[0].id;
+}
+
+function labModeForIndex(index: number): LabMode {
+  return index === 0 ? "full" : index === 1 ? "strategy" : "experiment";
+}
+
 export function ResearchDinoOS() {
   const [screen, setScreen] = useState<ScreenId>("map");
   const [projects, setProjects] = useState<ResearchProjectData[]>(initialResearchLabState.projects);
   const [activeProjectId, setActiveProjectId] = useState(initialResearchLabState.projects[0]?.id ?? defaultProjectId);
+  const [labInstances, setLabInstances] = useState<LabInstanceData[]>(initialResearchLabState.labInstances);
+  const [activeLabId, setActiveLabId] = useState(initialResearchLabState.labInstances.find((lab) => lab.enabled)?.id ?? "lab-alpha");
+  const [parallelMode, setParallelModeState] = useState<LabParallelMode>(() => {
+    const saved = window.localStorage.getItem("researchdino-parallel-mode");
+    return saved === "same_topic" || saved === "split_topics" || saved === "independent_topics"
+      ? saved
+      : "independent_topics";
+  });
   const [rooms, setRooms] = useState<LaboratoryRoomData[]>(initialResearchLabState.rooms);
   const [cards, setCards] = useState<WorkflowCardData[]>(initialResearchLabState.cards);
   const [logs, setLogs] = useState<AgentLogEntry[]>(initialResearchLabState.logs);
@@ -353,10 +396,11 @@ export function ResearchDinoOS() {
 
   function applyResearchLabState(nextState: ResearchLabState) {
     setProjects(nextState.projects);
-    setActiveProjectId((current) =>
-      nextState.projects.some((project) => project.id === current)
+    setLabInstances(nextState.labInstances);
+    setActiveLabId((current) =>
+      nextState.labInstances.some((lab) => lab.id === current && lab.enabled)
         ? current
-        : nextState.projects[0]?.id ?? defaultProjectId,
+        : nextState.labInstances.find((lab) => lab.enabled)?.id ?? nextState.labInstances[0]?.id ?? "lab-alpha",
     );
     setRooms(nextState.rooms);
     setCards(nextState.cards);
@@ -389,14 +433,23 @@ export function ResearchDinoOS() {
   }, []);
 
   const roomLookup = useMemo(() => new Map(rooms.map((room) => [room.id, room])), [rooms]);
-  const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
+  const enabledLabs = useMemo(() => labInstances.filter((lab) => lab.enabled), [labInstances]);
+  const activeLab = labInstances.find((lab) => lab.id === activeLabId && lab.enabled) ?? enabledLabs[0] ?? labInstances[0];
+  const activeProject = projects.find((project) => project.id === (activeLab?.projectId ?? activeProjectId)) ?? projects.find((project) => project.id === activeProjectId) ?? projects[0];
+
+  useEffect(() => {
+    if (activeLab?.projectId && activeLab.projectId !== activeProjectId) {
+      setActiveProjectId(activeLab.projectId);
+    }
+  }, [activeLab?.projectId, activeProjectId]);
+
   const projectCards = useMemo(
-    () => cards.filter((card) => belongsToProject(card, activeProject?.id ?? defaultProjectId)),
-    [activeProject?.id, cards],
+    () => cards.filter((card) => belongsToProject(card, activeProject?.id ?? defaultProjectId) && belongsToLabInstance(card, activeLab)),
+    [activeLab?.id, activeProject?.id, cards],
   );
   const projectLogCount = useMemo(
-    () => logs.filter((log) => belongsToProject(log, activeProject?.id ?? defaultProjectId)).length,
-    [activeProject?.id, logs],
+    () => logs.filter((log) => belongsToProject(log, activeProject?.id ?? defaultProjectId) && belongsToLabInstance(log, activeLab)).length,
+    [activeLab?.id, activeProject?.id, logs],
   );
   const activePaper = firstCard(projectCards, (card) => card.type === "paper" && card.status !== "failed");
   const activeDebate =
@@ -419,6 +472,93 @@ export function ResearchDinoOS() {
       successRate: 98,
     };
   }, [projectCards, rooms]);
+
+  function setParallelMode(mode: LabParallelMode) {
+    setParallelModeState(mode);
+    window.localStorage.setItem("researchdino-parallel-mode", mode);
+  }
+
+  async function persistLabPatches(patches: Array<{ id: string; patch: PatchLabInstanceInput }>) {
+    setLabInstances((current) =>
+      current.map((lab) => {
+        const update = patches.find((item) => item.id === lab.id);
+        return update ? { ...lab, ...update.patch } : lab;
+      }),
+    );
+
+    if (dataMode !== "api") return;
+
+    setBusyAction("labs-update");
+    try {
+      await Promise.all(patches.map((item) => patchLabInstance(item.id, item.patch)));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setActionMessage(message);
+      await refreshState();
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  function handleSelectLab(labId: string) {
+    const lab = labInstances.find((item) => item.id === labId);
+    setActiveLabId(labId);
+    if (lab?.projectId) setActiveProjectId(lab.projectId);
+  }
+
+  function handleAssignLabProject(labId: string, projectId: string) {
+    void persistLabPatches([{ id: labId, patch: { projectId } }]);
+    if (labId === activeLab?.id) setActiveProjectId(projectId);
+    setActionMessage(`Lab assigned to ${projects.find((project) => project.id === projectId)?.title ?? "project"}.`);
+  }
+
+  function handleSetLabCount(count: number) {
+    const patches = labInstances.map((lab, index) => ({
+      id: lab.id,
+      patch: {
+        enabled: index < count,
+        status: index < count ? (lab.status === "idle" ? "queued" : lab.status) : "idle",
+      } satisfies PatchLabInstanceInput,
+    }));
+    const nextActive = labInstances.find((_, index) => index < count)?.id ?? labInstances[0]?.id ?? "lab-alpha";
+    if (!labInstances.find((lab, index) => lab.id === activeLab?.id && index < count)) {
+      handleSelectLab(nextActive);
+    }
+    void persistLabPatches(patches);
+    setActionMessage(`${count} lab${count > 1 ? "s" : ""} active.`);
+  }
+
+  function handleSetParallelMode(mode: LabParallelMode) {
+    setParallelMode(mode);
+    const currentProjectId = activeProject?.id ?? defaultProjectId;
+    const enabled = labInstances.filter((lab) => lab.enabled);
+    const patches = labInstances.map((lab, index) => {
+      if (!lab.enabled) return { id: lab.id, patch: {} };
+      let projectId = currentProjectId;
+      if (mode === "independent_topics") {
+        projectId = projects[index]?.id ?? currentProjectId;
+      }
+      if (mode === "split_topics") {
+        projectId = enabled.length >= 3 && index < 2 ? currentProjectId : nextProjectId(projects, currentProjectId, index);
+      }
+      return {
+        id: lab.id,
+        patch: {
+          projectId,
+          mode: labModeForIndex(index),
+          status: lab.status === "idle" ? "queued" : lab.status,
+        } satisfies PatchLabInstanceInput,
+      };
+    });
+    void persistLabPatches(patches);
+    setActionMessage(
+      mode === "same_topic"
+        ? "All active labs are assigned to the same research topic."
+        : mode === "split_topics"
+          ? "Labs are split across the active topic and adjacent topics."
+          : "Labs are assigned to independent research topics.",
+    );
+  }
 
   async function handleAgentAction(card: WorkflowCardData | undefined, action: AgentActionValue, nextScreen?: ScreenId) {
     if (!card) {
@@ -482,7 +622,7 @@ export function ResearchDinoOS() {
     setActionMessage("");
     setIngestResult(undefined);
     try {
-      const folder = await registerIngestFolder(ingestPath.trim(), activeProject?.id ?? defaultProjectId);
+      const folder = await registerIngestFolder(ingestPath.trim(), activeProject?.id ?? defaultProjectId, activeLab?.id);
       if (!folder.exists) {
         setActionMessage("Folder was registered, but it does not exist on this machine.");
         return;
@@ -510,13 +650,14 @@ export function ResearchDinoOS() {
     setActionMessage("");
     try {
       if (dataMode === "api") {
-        await createWorkflowCard({ ...input, title });
+        await createWorkflowCard({ ...input, title, labId: input.labId ?? activeLab?.id });
         await refreshState();
       } else {
         const agent = roomAgentMap[input.currentRoom];
         const card: WorkflowCardData = {
           id: `task-${Date.now()}`,
           projectId: input.projectId,
+          labId: input.labId ?? activeLab?.id,
           title,
           type: input.type,
           currentRoom: input.currentRoom,
@@ -551,10 +692,13 @@ export function ResearchDinoOS() {
     setBusyAction("project-create");
     setActionMessage("");
     try {
+      const targetLabId = activeLab?.id ?? "lab-alpha";
       if (dataMode === "api") {
         const project = await createResearchProject({ ...input, title });
-        await refreshState();
         setActiveProjectId(project.id);
+        setActiveLabId(targetLabId);
+        await persistLabPatches([{ id: targetLabId, patch: { projectId: project.id } }]);
+        await refreshState();
       } else {
         const project: ResearchProjectData = {
           id: `project-${Date.now()}`,
@@ -569,6 +713,8 @@ export function ResearchDinoOS() {
         };
         setProjects((current) => [...current, project]);
         setActiveProjectId(project.id);
+        setActiveLabId(targetLabId);
+        void persistLabPatches([{ id: targetLabId, patch: { projectId: project.id } }]);
       }
       setActionMessage(`Project created: ${title}`);
     } catch (error: unknown) {
@@ -662,7 +808,8 @@ export function ResearchDinoOS() {
           </nav>
 
           <section className="rdos-sidebar-block">
-            <span>Active Project</span>
+            <span>Active Lab</span>
+            <em>{activeLab?.name ?? "Lab"} - {activeLab?.label ?? "Parallel lab"}</em>
             <strong>{activeProject?.title ?? "Research Project"}</strong>
             <em>{activeProject?.sourceNote ?? "Project source pending"}</em>
             <em>{activeProject?.domain ?? "Domain pending"}</em>
@@ -704,7 +851,7 @@ export function ResearchDinoOS() {
                 <select
                   aria-label="Active project"
                   value={activeProject?.id ?? defaultProjectId}
-                  onChange={(event) => setActiveProjectId(event.target.value)}
+                  onChange={(event) => handleAssignLabProject(activeLab?.id ?? "lab-alpha", event.target.value)}
                 >
                   {projects.map((project) => (
                     <option value={project.id} key={project.id}>{project.title}</option>
@@ -741,6 +888,15 @@ export function ResearchDinoOS() {
                 cards={projectCards}
                 roomLookup={roomLookup}
                 stats={stats}
+                projects={projects}
+                labs={labInstances}
+                activeLabId={activeLab?.id ?? activeLabId}
+                parallelMode={parallelMode}
+                allCards={cards}
+                onSelectLab={handleSelectLab}
+                onSetLabCount={handleSetLabCount}
+                onSetParallelMode={handleSetParallelMode}
+                onAssignLabProject={handleAssignLabProject}
                 onNavigate={setScreen}
               />
             )}
@@ -780,7 +936,7 @@ export function ResearchDinoOS() {
                 activeProjectId={activeProject?.id ?? defaultProjectId}
                 busy={busyAction === "project-create"}
                 onSelectProject={(projectId) => {
-                  setActiveProjectId(projectId);
+                  handleAssignLabProject(activeLab?.id ?? "lab-alpha", projectId);
                   setScreen("map");
                 }}
                 onOpenMap={() => setScreen("map")}
@@ -820,12 +976,30 @@ function MapScreen({
   cards,
   roomLookup,
   stats,
+  projects,
+  labs,
+  activeLabId,
+  parallelMode,
+  allCards,
+  onSelectLab,
+  onSetLabCount,
+  onSetParallelMode,
+  onAssignLabProject,
   onNavigate,
 }: {
   rooms: LaboratoryRoomData[];
   cards: WorkflowCardData[];
   roomLookup: Map<RoomId, LaboratoryRoomData>;
   stats: { online: number; running: number; waiting: number; successRate: number };
+  projects: ResearchProjectData[];
+  labs: LabInstanceData[];
+  activeLabId: string;
+  parallelMode: LabParallelMode;
+  allCards: WorkflowCardData[];
+  onSelectLab: (labId: string) => void;
+  onSetLabCount: (count: number) => void;
+  onSetParallelMode: (mode: LabParallelMode) => void;
+  onAssignLabProject: (labId: string, projectId: string) => void;
   onNavigate: (screen: ScreenId) => void;
 }) {
   const queueCards = cards.filter((card) => !completeStatuses.has(card.status)).slice(0, 4);
@@ -833,6 +1007,17 @@ function MapScreen({
 
   return (
     <section className="rdos-map-screen">
+      <ParallelLabsPanel
+        projects={projects}
+        labs={labs}
+        activeLabId={activeLabId}
+        parallelMode={parallelMode}
+        cards={allCards}
+        onSelectLab={onSelectLab}
+        onSetLabCount={onSetLabCount}
+        onSetParallelMode={onSetParallelMode}
+        onAssignLabProject={onAssignLabProject}
+      />
       <div className="rdos-map-stage">
         <svg className="rdos-map-flow" viewBox="0 0 1300 685" aria-hidden="true">
           <defs>
@@ -895,6 +1080,129 @@ function MapScreen({
         </div>
       </section>
     </section>
+  );
+}
+
+const parallelModeLabels: Record<LabParallelMode, string> = {
+  same_topic: "Same Topic",
+  split_topics: "Split Topics",
+  independent_topics: "Independent",
+};
+
+const labModeLabels: Record<LabMode, string> = {
+  full: "Full Workflow",
+  literature: "Literature",
+  debate: "Debate",
+  strategy: "Strategy",
+  experiment: "Experiment",
+  writing: "Writing",
+};
+
+function ParallelLabsPanel({
+  projects,
+  labs,
+  activeLabId,
+  parallelMode,
+  cards,
+  onSelectLab,
+  onSetLabCount,
+  onSetParallelMode,
+  onAssignLabProject,
+}: {
+  projects: ResearchProjectData[];
+  labs: LabInstanceData[];
+  activeLabId: string;
+  parallelMode: LabParallelMode;
+  cards: WorkflowCardData[];
+  onSelectLab: (labId: string) => void;
+  onSetLabCount: (count: number) => void;
+  onSetParallelMode: (mode: LabParallelMode) => void;
+  onAssignLabProject: (labId: string, projectId: string) => void;
+}) {
+  const enabledCount = labs.filter((lab) => lab.enabled).length;
+
+  return (
+    <section className="rdos-parallel-panel" aria-label="Parallel lab orchestration">
+      <header>
+        <div>
+          <span>Parallel Labs</span>
+          <h2>{enabledCount} Research Labs Running</h2>
+        </div>
+        <div className="rdos-parallel-controls">
+          <div className="rdos-mini-segment" aria-label="Lab count">
+            {[1, 2, 3].map((count) => (
+              <button className={enabledCount === count ? "is-active" : ""} type="button" key={count} onClick={() => onSetLabCount(count)}>
+                {count} Lab{count > 1 ? "s" : ""}
+              </button>
+            ))}
+          </div>
+          <div className="rdos-mini-segment" aria-label="Lab topic mode">
+            {(Object.keys(parallelModeLabels) as LabParallelMode[]).map((mode) => (
+              <button className={parallelMode === mode ? "is-active" : ""} type="button" key={mode} onClick={() => onSetParallelMode(mode)}>
+                {parallelModeLabels[mode]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <div className="rdos-lab-strip">
+        {labs.map((lab) => {
+          const project = projects.find((item) => item.id === lab.projectId) ?? projects[0];
+          const labCards = cards.filter((card) => belongsToProject(card, lab.projectId) && belongsToLabInstance(card, lab));
+          const running = labCards.filter((card) => runningStatuses.has(card.status)).length;
+          const waiting = labCards.filter((card) => waitingStatuses.has(card.status)).length;
+          const complete = labCards.filter((card) => completeStatuses.has(card.status)).length;
+          return (
+            <article
+              className={`rdos-lab-card${lab.id === activeLabId ? " is-active" : ""}${lab.enabled ? "" : " is-disabled"}`}
+              key={lab.id}
+            >
+              <button className="rdos-lab-card-main" type="button" disabled={!lab.enabled} onClick={() => onSelectLab(lab.id)}>
+                <div>
+                  <span>{lab.name}</span>
+                  <strong>{project?.shortTitle ?? project?.title ?? "Project"}</strong>
+                  <em>{labModeLabels[lab.mode]} / {displayStatus(lab.status)}</em>
+                </div>
+                <MiniLabMap active={lab.enabled} />
+              </button>
+              <label className="rdos-lab-project-picker">
+                <span>Topic</span>
+                <select value={lab.projectId} disabled={!lab.enabled} onChange={(event) => onAssignLabProject(lab.id, event.target.value)}>
+                  {projects.map((option) => (
+                    <option value={option.id} key={option.id}>{option.title}</option>
+                  ))}
+                </select>
+              </label>
+              <footer>
+                <span>{labCards.length} Cards</span>
+                <span>{running} Running</span>
+                <span>{waiting} Waiting</span>
+                <span>{complete} Done</span>
+              </footer>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function MiniLabMap({ active }: { active: boolean }) {
+  return (
+    <div className={`rdos-lab-mini-map${active ? " is-active" : ""}`} aria-hidden="true">
+      {roomLayout.map((room) => (
+        <i
+          key={room.id}
+          style={{
+            left: `${(room.x / 1300) * 100}%`,
+            top: `${(room.y / 685) * 100}%`,
+            width: `${Math.max(6, (room.w / 1300) * 100)}%`,
+            height: `${Math.max(5, (room.h / 685) * 100)}%`,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 

@@ -59,6 +59,8 @@ WorkflowStatus = Literal[
     "stored_in_library",
 ]
 
+LabMode = Literal["full", "literature", "debate", "strategy", "experiment", "writing"]
+
 ApprovalStatus = Literal[
     "draft",
     "pending_review",
@@ -139,6 +141,27 @@ class ResearchProjectCreateRequest(BaseModel):
     status: Literal["active", "paused", "completed"] = "active"
 
 
+class LabInstance(BaseModel):
+    id: str
+    name: str
+    label: str
+    projectId: str
+    mode: LabMode
+    status: WorkflowStatus
+    summary: str
+    enabled: bool
+    createdAt: str
+
+
+class LabInstancePatchRequest(BaseModel):
+    projectId: str | None = None
+    mode: LabMode | None = None
+    status: WorkflowStatus | None = None
+    enabled: bool | None = None
+    label: str | None = None
+    summary: str | None = None
+
+
 class LaboratoryRoom(BaseModel):
     id: RoomId
     title: str
@@ -158,6 +181,7 @@ class LaboratoryRoom(BaseModel):
 class WorkflowCard(BaseModel):
     id: str
     projectId: str = "project-autophagy"
+    labId: str | None = None
     title: str
     type: CardType
     currentRoom: RoomId
@@ -177,6 +201,7 @@ class WorkflowCard(BaseModel):
 
 class WorkflowCardCreateRequest(BaseModel):
     projectId: str = "project-autophagy"
+    labId: str | None = None
     title: str
     type: CardType = "review"
     currentRoom: RoomId = "coordinator"
@@ -185,6 +210,7 @@ class WorkflowCardCreateRequest(BaseModel):
 
 
 class WorkflowCardPatchRequest(BaseModel):
+    labId: str | None = None
     title: str | None = None
     type: CardType | None = None
     currentRoom: RoomId | None = None
@@ -201,6 +227,7 @@ class WorkflowCardPatchRequest(BaseModel):
 class AgentLogEntry(BaseModel):
     id: str
     projectId: str = "project-autophagy"
+    labId: str | None = None
     time: str
     agent: AgentVariant
     room: RoomId
@@ -219,6 +246,7 @@ class LeaderDecisionRequest(BaseModel):
 class LeaderDecisionRecord(BaseModel):
     id: str
     projectId: str = "project-autophagy"
+    labId: str | None = None
     cardId: str
     decision: LeaderDecisionValue
     reason: str
@@ -242,6 +270,7 @@ class AgentActionResult(BaseModel):
 class LibraryEntry(BaseModel):
     id: str
     projectId: str = "project-autophagy"
+    labId: str | None = None
     title: str
     summary: str
     sourceCardId: str
@@ -260,11 +289,13 @@ class ApiMode(BaseModel):
 class IngestFolderRequest(BaseModel):
     path: str
     projectId: str = "project-autophagy"
+    labId: str | None = None
 
 
 class IngestFolderRecord(BaseModel):
     id: str
     projectId: str = "project-autophagy"
+    labId: str | None = None
     path: str
     registeredAt: str
     exists: bool
@@ -273,6 +304,7 @@ class IngestFolderRecord(BaseModel):
 class PaperFileRecord(BaseModel):
     id: str
     projectId: str = "project-autophagy"
+    labId: str | None = None
     path: str
     fileName: str
     sizeBytes: int

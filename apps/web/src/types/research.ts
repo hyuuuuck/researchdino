@@ -50,6 +50,9 @@ export type WorkflowStatus =
   | "archived"
   | "stored_in_library";
 
+export type LabMode = "full" | "literature" | "debate" | "strategy" | "experiment" | "writing";
+export type LabParallelMode = "same_topic" | "split_topics" | "independent_topics";
+
 export type ApprovalStatus =
   | "draft"
   | "pending_review"
@@ -108,6 +111,18 @@ export interface ResearchProjectData {
   createdAt: string;
 }
 
+export interface LabInstanceData {
+  id: string;
+  name: string;
+  label: string;
+  projectId: string;
+  mode: LabMode;
+  status: WorkflowStatus;
+  summary: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
 export interface LaboratoryRoomData {
   id: RoomId;
   title: string;
@@ -131,6 +146,7 @@ export interface LaboratoryRoomData {
 export interface WorkflowCardData {
   id: string;
   projectId: string;
+  labId?: string;
   title: string;
   type: CardType;
   currentRoom: RoomId;
@@ -151,6 +167,7 @@ export interface WorkflowCardData {
 export interface AgentLogEntry {
   id: string;
   projectId: string;
+  labId?: string;
   time: string;
   agent: AgentVariant;
   room: RoomId;
