@@ -3,7 +3,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from .demo_data import DEMO_CARDS, DEMO_LOGS, DEMO_ROOMS
+from .demo_data import DEMO_CARDS, DEMO_LOGS, DEMO_PROJECTS, DEMO_ROOMS
 
 
 APP_DIR = Path(__file__).resolve().parents[1]
@@ -11,6 +11,7 @@ DATA_DIR = APP_DIR / "data"
 DB_PATH = DATA_DIR / "researchdino.sqlite3"
 
 TABLES = {
+    "projects": DEMO_PROJECTS,
     "rooms": DEMO_ROOMS,
     "cards": DEMO_CARDS,
     "agent_logs": DEMO_LOGS,
@@ -43,8 +44,8 @@ def init_db() -> None:
                 """
             )
         for table, rows in TABLES.items():
-            if rows and count_rows(connection, table) == 0:
-                for row in rows:
+            for row in rows:
+                if get_json_with_connection(connection, table, row["id"]) is None:
                     upsert_json(connection, table, row["id"], row)
 
 
@@ -61,7 +62,15 @@ def list_json(table: str) -> list[dict[str, Any]]:
 
 def get_json(table: str, item_id: str) -> dict[str, Any] | None:
     with connect() as connection:
-        row = connection.execute(f"SELECT payload FROM {table} WHERE id = ?", (item_id,)).fetchone()
+        return get_json_with_connection(connection, table, item_id)
+
+
+def get_json_with_connection(
+    connection: sqlite3.Connection,
+    table: str,
+    item_id: str,
+) -> dict[str, Any] | None:
+    row = connection.execute(f"SELECT payload FROM {table} WHERE id = ?", (item_id,)).fetchone()
     if row is None:
         return None
     return json.loads(row["payload"])

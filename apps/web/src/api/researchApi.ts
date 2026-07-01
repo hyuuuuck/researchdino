@@ -1,11 +1,12 @@
-import { agentLogs, initialWorkflowCards, laboratoryRooms } from "../data/demoResearchLab";
-import type { AgentLogEntry, LaboratoryRoomData, WorkflowCardData } from "../types/research";
+import { agentLogs, initialWorkflowCards, laboratoryRooms, researchProjects } from "../data/demoResearchLab";
+import type { AgentLogEntry, LaboratoryRoomData, ResearchProjectData, WorkflowCardData } from "../types/research";
 
 export type ResearchDataMode = "demo" | "api";
 export type LeaderDecisionValue = "approved" | "rejected" | "needs_revision" | "stored_in_library";
 export type AgentActionValue = "run_reader" | "run_debate" | "design_experiment" | "draft_manuscript";
 
 export interface ResearchLabState {
+  projects: ResearchProjectData[];
   rooms: LaboratoryRoomData[];
   cards: WorkflowCardData[];
   logs: AgentLogEntry[];
@@ -14,6 +15,7 @@ export interface ResearchLabState {
 
 export interface IngestFolderRecord {
   id: string;
+  projectId: string;
   path: string;
   registeredAt: string;
   exists: boolean;
@@ -41,6 +43,7 @@ const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim().replace(/
 export function getDemoResearchLabState(): ResearchLabState {
   return {
     rooms: laboratoryRooms,
+    projects: researchProjects,
     cards: initialWorkflowCards,
     logs: agentLogs,
     mode: "demo",
@@ -68,13 +71,15 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     return getDemoResearchLabState();
   }
 
-  const [rooms, cards, logs] = await Promise.all([
+  const [projects, rooms, cards, logs] = await Promise.all([
+    fetchJson<ResearchProjectData[]>("/projects"),
     fetchJson<LaboratoryRoomData[]>("/rooms"),
     fetchJson<WorkflowCardData[]>("/cards"),
     fetchJson<AgentLogEntry[]>("/agent-logs"),
   ]);
 
   return {
+    projects,
     rooms,
     cards,
     logs,
@@ -97,14 +102,14 @@ export async function submitLeaderDecision(
   });
 }
 
-export async function registerIngestFolder(path: string): Promise<IngestFolderRecord> {
+export async function registerIngestFolder(path: string, projectId: string): Promise<IngestFolderRecord> {
   if (!configuredApiBaseUrl) {
     throw new Error("No API base URL is configured.");
   }
 
   return fetchJson<IngestFolderRecord>("/ingest/folder", {
     method: "POST",
-    body: JSON.stringify({ path }),
+    body: JSON.stringify({ path, projectId }),
   });
 }
 

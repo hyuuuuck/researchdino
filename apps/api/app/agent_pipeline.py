@@ -16,6 +16,10 @@ def current_clock_time() -> str:
     return datetime.now().strftime("%H:%M")
 
 
+def card_project_id(card: dict[str, Any]) -> str:
+    return str(card.get("projectId") or "project-autophagy")
+
+
 def run_agent_action(card_id: str, action: str) -> dict[str, Any]:
     if action == "run_reader":
         return run_reader(card_id)
@@ -77,6 +81,7 @@ def run_reader(card_id: str) -> dict[str, Any]:
         title="Reader extraction completed",
         message=f"{card['title']} produced 1 claim candidate and {len(evidence_items)} evidence items.",
         related_card_id=card["id"],
+        project_id=card_project_id(card),
     )
     write_log(
         agent="critic",
@@ -85,6 +90,7 @@ def run_reader(card_id: str) -> dict[str, Any]:
         title="Claim queued for debate",
         message="Critic, Strategist, and Experiment deputies can now challenge the extracted claim.",
         related_card_id=debate_card["id"],
+        project_id=card_project_id(card),
     )
 
     return {
@@ -204,6 +210,7 @@ def run_debate(card_id: str) -> dict[str, Any]:
         title="Debate objections consolidated",
         message="Critic marked unresolved controls and replication requirements.",
         related_card_id=card["id"],
+        project_id=card_project_id(card),
     )
     write_log(
         agent="reader",
@@ -212,6 +219,7 @@ def run_debate(card_id: str) -> dict[str, Any]:
         title="Reader defended source evidence",
         message=supporting_evidence[0],
         related_card_id=card["id"],
+        project_id=card_project_id(card),
     )
     write_log(
         agent="strategist",
@@ -220,6 +228,7 @@ def run_debate(card_id: str) -> dict[str, Any]:
         title="Hypothesis card generated",
         message="Strategist converted debate gaps into a hypothesis candidate.",
         related_card_id=hypothesis_card["id"],
+        project_id=card_project_id(card),
     )
     write_log(
         agent="experiment",
@@ -228,6 +237,7 @@ def run_debate(card_id: str) -> dict[str, Any]:
         title="Experiment plan queued",
         message="Experiment deputy drafted an initial feasibility plan from debate outputs.",
         related_card_id=experiment_card["id"],
+        project_id=card_project_id(card),
     )
     write_log(
         agent="librarian",
@@ -236,6 +246,7 @@ def run_debate(card_id: str) -> dict[str, Any]:
         title="Library gate remains closed",
         message="Librarian will store only Leader-approved claims with source traces and resolved objections.",
         related_card_id=card["id"],
+        project_id=card_project_id(card),
     )
     write_log(
         agent="coordinator",
@@ -244,6 +255,7 @@ def run_debate(card_id: str) -> dict[str, Any]:
         title="Leader packet prepared",
         message="Coordinator sent the debate packet to Leader Office for approval.",
         related_card_id=card["id"],
+        project_id=card_project_id(card),
     )
 
     return {
@@ -288,6 +300,7 @@ def design_experiment(card_id: str) -> dict[str, Any]:
         title="Experiment design drafted",
         message="Experiment Bay created a protocol skeleton from the selected hypothesis.",
         related_card_id=experiment_card["id"],
+        project_id=card_project_id(card),
     )
 
     return {
@@ -304,6 +317,7 @@ def draft_manuscript(card_id: str) -> dict[str, Any]:
     manuscript_id = f"manuscript-{card['id']}"
     manuscript_card = {
         "id": manuscript_id,
+        "projectId": card_project_id(card),
         "title": f"Manuscript Outline: {card['title'][:54]}",
         "type": "manuscript",
         "currentRoom": "writing",
@@ -331,6 +345,7 @@ def draft_manuscript(card_id: str) -> dict[str, Any]:
         title="Manuscript outline queued",
         message="Writer created an outline that still requires citation review.",
         related_card_id=manuscript_card["id"],
+        project_id=card_project_id(card),
     )
     return {
         "action": "draft_manuscript",
@@ -351,6 +366,7 @@ def build_debate_card(
     debate_id = f"debate-{paper_id}"
     return {
         "id": debate_id,
+        "projectId": card_project_id(paper_card),
         "title": f"Claim Debate: {claim_text[:52]}",
         "type": "claim_debate",
         "currentRoom": "debate",
@@ -417,6 +433,7 @@ def build_hypothesis_card(
     hypothesis_id = f"hypothesis-{debate_card['id']}"
     return {
         "id": hypothesis_id,
+        "projectId": card_project_id(debate_card),
         "title": f"Hypothesis: {hypotheses[0][:58]}",
         "type": "hypothesis",
         "currentRoom": "strategy",
@@ -453,6 +470,7 @@ def build_experiment_card(
     experiment_id = f"experiment-{source_card['id']}"
     return {
         "id": experiment_id,
+        "projectId": card_project_id(source_card),
         "title": title or f"Experiment Plan: {suggested_experiments[0][:54]}",
         "type": "experiment",
         "currentRoom": "experiment",
@@ -576,6 +594,7 @@ def write_log(
     title: str,
     message: str,
     related_card_id: str | None = None,
+    project_id: str = "project-autophagy",
 ) -> None:
     log_id = f"log-{uuid4().hex[:12]}"
     put_json(
@@ -583,6 +602,7 @@ def write_log(
         log_id,
         {
             "id": log_id,
+            "projectId": project_id,
             "time": current_clock_time(),
             "agent": agent,
             "room": room,

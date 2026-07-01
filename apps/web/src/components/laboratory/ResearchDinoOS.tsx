@@ -17,6 +17,7 @@ import type {
   AgentVariant,
   LaboratoryRoomData,
   PaperSourceConnector,
+  ResearchProjectData,
   RoomId,
   WorkflowCardData,
 } from "../../types/research";
@@ -24,6 +25,7 @@ import type {
 type ScreenId = "map" | "debate" | "reader" | "report" | "agents" | "library" | "reports" | "projects" | "tasks" | "settings";
 
 const initialResearchLabState = getDemoResearchLabState();
+const defaultProjectId = "project-autophagy";
 
 const sidebarItems: Array<{ id: ScreenId; label: string; icon: IconName }> = [
   { id: "map", label: "Lab Map", icon: "grid" },
@@ -125,8 +127,14 @@ function firstCard(cards: WorkflowCardData[], predicate: (card: WorkflowCardData
   return cards.find(predicate);
 }
 
+function belongsToProject(item: { projectId?: string }, projectId: string) {
+  return (item.projectId ?? defaultProjectId) === projectId;
+}
+
 export function ResearchDinoOS() {
   const [screen, setScreen] = useState<ScreenId>("map");
+  const [projects, setProjects] = useState<ResearchProjectData[]>(initialResearchLabState.projects);
+  const [activeProjectId, setActiveProjectId] = useState(initialResearchLabState.projects[0]?.id ?? defaultProjectId);
   const [rooms, setRooms] = useState<LaboratoryRoomData[]>(initialResearchLabState.rooms);
   const [cards, setCards] = useState<WorkflowCardData[]>(initialResearchLabState.cards);
   const [logs, setLogs] = useState<AgentLogEntry[]>(initialResearchLabState.logs);
@@ -138,6 +146,12 @@ export function ResearchDinoOS() {
   const [ingestResult, setIngestResult] = useState<IngestScanResult>();
 
   function applyResearchLabState(nextState: ResearchLabState) {
+    setProjects(nextState.projects);
+    setActiveProjectId((current) =>
+      nextState.projects.some((project) => project.id === current)
+        ? current
+        : nextState.projects[0]?.id ?? defaultProjectId,
+    );
     setRooms(nextState.rooms);
     setCards(nextState.cards);
     setLogs(nextState.logs);
@@ -169,28 +183,36 @@ export function ResearchDinoOS() {
   }, []);
 
   const roomLookup = useMemo(() => new Map(rooms.map((room) => [room.id, room])), [rooms]);
-  const activePaper = firstCard(cards, (card) => card.type === "paper" && card.status !== "failed");
+  const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
+  const projectCards = useMemo(
+    () => cards.filter((card) => belongsToProject(card, activeProject?.id ?? defaultProjectId)),
+    [activeProject?.id, cards],
+  );
+  const projectLogCount = useMemo(
+    () => logs.filter((log) => belongsToProject(log, activeProject?.id ?? defaultProjectId)).length,
+    [activeProject?.id, logs],
+  );
+  const activePaper = firstCard(projectCards, (card) => card.type === "paper" && card.status !== "failed");
   const activeDebate =
-    firstCard(cards, (card) => card.type === "claim_debate" && card.status !== "stored_in_library") ??
-    firstCard(cards, (card) => card.type === "claim_debate");
-  const activeHypothesis = firstCard(cards, (card) => card.type === "hypothesis");
-  const reviewCards = cards.filter((card) => card.requiresUserReview || card.status === "waiting_for_user" || card.status === "waiting_for_leader_review");
-  const libraryCards = cards.filter((card) => card.currentRoom === "library" || card.status === "stored_in_library");
+    firstCard(projectCards, (card) => card.type === "claim_debate" && card.status !== "stored_in_library") ??
+    firstCard(projectCards, (card) => card.type === "claim_debate");
+  const reviewCards = projectCards.filter((card) => card.requiresUserReview || card.status === "waiting_for_user" || card.status === "waiting_for_leader_review");
+  const libraryCards = projectCards.filter((card) => card.currentRoom === "library" || card.status === "stored_in_library");
 
   const stats = useMemo(() => {
-    const inProgress = cards.filter((card) => runningStatuses.has(card.status)).length;
-    const waiting = cards.filter((card) => waitingStatuses.has(card.status)).length;
-    const completed = cards.filter((card) => completeStatuses.has(card.status)).length;
+    const inProgress = projectCards.filter((card) => runningStatuses.has(card.status)).length;
+    const waiting = projectCards.filter((card) => waitingStatuses.has(card.status)).length;
+    const completed = projectCards.filter((card) => completeStatuses.has(card.status)).length;
     return {
-      totalTasks: cards.length + rooms.reduce((total, room) => total + room.metrics.active, 0),
+      totalTasks: projectCards.length,
       inProgress,
       waiting,
-      completed: Math.max(completed, 8),
+      completed,
       running: inProgress,
       online: new Set(rooms.map((room) => room.agent)).size,
       successRate: 98,
     };
-  }, [cards, rooms]);
+  }, [projectCards, rooms]);
 
   async function handleAgentAction(card: WorkflowCardData | undefined, action: AgentActionValue, nextScreen?: ScreenId) {
     if (!card) {
@@ -254,7 +276,7 @@ export function ResearchDinoOS() {
     setActionMessage("");
     setIngestResult(undefined);
     try {
-      const folder = await registerIngestFolder(ingestPath.trim());
+      const folder = await registerIngestFolder(ingestPath.trim(), activeProject?.id ?? defaultProjectId);
       if (!folder.exists) {
         setActionMessage("Folder was registered, but it does not exist on this machine.");
         return;
@@ -297,8 +319,9 @@ export function ResearchDinoOS() {
 
           <section className="rdos-sidebar-block">
             <span>Active Project</span>
-            <strong>AutoPhagy Mechanism</strong>
-            <em>Smith et al., 2023</em>
+            <strong>{activeProject?.title ?? "Research Project"}</strong>
+            <em>{activeProject?.sourceNote ?? "Project source pending"}</em>
+            <em>{activeProject?.domain ?? "Domain pending"}</em>
           </section>
 
           <section className="rdos-stat-list" aria-label="Task summary">
@@ -306,6 +329,7 @@ export function ResearchDinoOS() {
             <StatRow label="In Progress" value={stats.inProgress} />
             <StatRow label="Waiting" value={stats.waiting} />
             <StatRow label="Completed" value={stats.completed} />
+            <StatRow label="Lab Events" value={projectLogCount} />
           </section>
 
           <section className="rdos-quick-actions">
@@ -331,10 +355,18 @@ export function ResearchDinoOS() {
               <p>AI Research Workflow Overview</p>
             </div>
             <div className="rdos-top-actions">
-              <button type="button">
+              <label className="rdos-project-select">
                 <small>Active Project</small>
-                <strong>AutoPhagy Mechanism</strong>
-              </button>
+                <select
+                  aria-label="Active project"
+                  value={activeProject?.id ?? defaultProjectId}
+                  onChange={(event) => setActiveProjectId(event.target.value)}
+                >
+                  {projects.map((project) => (
+                    <option value={project.id} key={project.id}>{project.title}</option>
+                  ))}
+                </select>
+              </label>
               <div className="rdos-system-status">
                 <small>System Status</small>
                 <strong><i />{dataMode === "api" ? "Local API Connected" : "Mock Workflow Data"}</strong>
@@ -362,7 +394,7 @@ export function ResearchDinoOS() {
             {screen === "map" && (
               <MapScreen
                 rooms={rooms}
-                cards={cards}
+                cards={projectCards}
                 roomLookup={roomLookup}
                 stats={stats}
                 onNavigate={setScreen}
@@ -379,15 +411,17 @@ export function ResearchDinoOS() {
             {screen === "reader" && (
               <ReaderScreen
                 card={activePaper}
+                project={activeProject}
                 onRunReader={() => handleAgentAction(activePaper, "run_reader", "debate")}
                 busy={Boolean(busyAction)}
               />
             )}
-            {screen === "report" && <ManuscriptScreen card={firstCard(cards, (card) => card.type === "manuscript")} />}
-            {screen === "agents" && <AgentsScreen rooms={rooms} cards={cards} />}
-            {screen === "library" && <LibraryScreen cards={libraryCards} allCards={cards} />}
+            {screen === "report" && <ManuscriptScreen card={firstCard(projectCards, (card) => card.type === "manuscript")} project={activeProject} />}
+            {screen === "agents" && <AgentsScreen rooms={rooms} cards={projectCards} />}
+            {screen === "library" && <LibraryScreen cards={libraryCards} allCards={projectCards} />}
             {screen === "reports" && (
               <ReportsScreen
+                project={activeProject}
                 reviewCard={reviewCards[0]}
                 onStore={() => handleLeaderDecision(reviewCards[0], "stored_in_library")}
                 onRevise={() => handleLeaderDecision(reviewCards[0], "needs_revision")}
@@ -395,8 +429,19 @@ export function ResearchDinoOS() {
                 busy={Boolean(busyAction)}
               />
             )}
-            {screen === "projects" && <ProjectsScreen onOpenMap={() => setScreen("map")} />}
-            {screen === "tasks" && <TasksScreen cards={cards} />}
+            {screen === "projects" && (
+              <ProjectsScreen
+                projects={projects}
+                cards={cards}
+                activeProjectId={activeProject?.id ?? defaultProjectId}
+                onSelectProject={(projectId) => {
+                  setActiveProjectId(projectId);
+                  setScreen("map");
+                }}
+                onOpenMap={() => setScreen("map")}
+              />
+            )}
+            {screen === "tasks" && <TasksScreen cards={projectCards} project={activeProject} />}
             {screen === "settings" && (
               <SettingsScreen
                 dataMode={dataMode}
@@ -723,37 +768,45 @@ function DebateScreen({
   );
 }
 
-function ReaderScreen({ card, onRunReader, busy }: { card?: WorkflowCardData; onRunReader: () => void; busy: boolean }) {
+function ReaderScreen({
+  card,
+  project,
+  onRunReader,
+  busy,
+}: {
+  card?: WorkflowCardData;
+  project?: ResearchProjectData;
+  onRunReader: () => void;
+  busy: boolean;
+}) {
+  const sections = detailList(card, "Sections", ["Abstract", "Methods", "Results", "Limitations"]);
   return (
     <section className="rdos-reader-grid">
       <aside className="rdos-panel rdos-now-reading">
         <span className="rdos-eyebrow">Now Reading</span>
         <img src={agentAssets.reader} alt="" />
         <h2>{card?.title ?? "No paper selected"}</h2>
-        <p>Smith et al. · Nature Neuroscience · 2023</p>
-        <div className="rdos-chip-row"><b>Autophagy</b><b>ULK1</b><b>Neuron</b></div>
+        <p>{project?.sourceNote ?? detailText(card, "Source type", "Source pending")}</p>
+        <div className="rdos-chip-row"><b>{project?.domain ?? "Research"}</b><b>{detailText(card, "Source type", "Paper")}</b></div>
         <div className="rdos-progress"><span>Progress</span><i><b style={{ width: `${card?.progress ?? 24}%` }} /></i></div>
       </aside>
       <article className="rdos-panel rdos-reading-pane">
-        <h2>Abstract</h2>
+        <h2>{detailText(card, "Title", project?.title ?? "Research Reading")}</h2>
+        <p>{card?.summary ?? project?.description ?? "Select or import a paper to begin project-specific reading."}</p>
         <p>
-          Autophagy regulates protein aggregate clearance in stressed neurons. The current evidence suggests a timing-dependent
-          activation pattern, but several control details remain unresolved.
-        </p>
-        <p>
-          Reader Dino highlights <mark>claim candidates, evidence spans, limitations, and missing controls</mark> before Debate Room review.
+          Reader Dino highlights <mark>claim candidates, evidence spans, limitations, and missing controls</mark> for this research project before Debate Room review.
         </p>
         <div className="rdos-reader-note">
           <img src={agentAssets.reader} alt="" />
           <span>Reader Note</span>
-          <p>Run Reader to create a traceable Debate Room claim card from this paper.</p>
+          <p>Run Reader to create a traceable Debate Room claim card inside {project?.shortTitle ?? "this project"}.</p>
         </div>
       </article>
       <aside className="rdos-panel">
         <span className="rdos-eyebrow">AI Summary</span>
-        <h3>Key Findings</h3>
+        <h3>Reading Targets</h3>
         <ul>
-          <li>Candidate claim extracted from paper metadata or parsed text.</li>
+          {sections.slice(0, 4).map((section) => <li key={section}>{section}</li>)}
           <li>Evidence candidates remain traceable to the source card.</li>
           <li>Weak or unsupported claims stay provisional.</li>
         </ul>
@@ -770,7 +823,7 @@ function ReaderScreen({ card, onRunReader, busy }: { card?: WorkflowCardData; on
   );
 }
 
-function ManuscriptScreen({ card }: { card?: WorkflowCardData }) {
+function ManuscriptScreen({ card, project }: { card?: WorkflowCardData; project?: ResearchProjectData }) {
   return (
     <section className="rdos-report-grid">
       <aside className="rdos-panel">
@@ -781,10 +834,10 @@ function ManuscriptScreen({ card }: { card?: WorkflowCardData }) {
       </aside>
       <article className="rdos-panel rdos-editor">
         <div className="rdos-toolbar"><b>B</b><b>I</b><b>H2</b><b>•</b><span><i />Writer drafting</span></div>
-        <h2>{card?.title ?? "Autophagy Mechanism Manuscript"}</h2>
-        <em>ResearchDino Lab · AutoPhagy Mechanism</em>
+        <h2>{card?.title ?? `${project?.shortTitle ?? "Research"} Manuscript`}</h2>
+        <em>ResearchDino Lab - {project?.title ?? "Research Project"}</em>
         <h3>Abstract</h3>
-        <p>Autophagy-mediated aggregate clearance remains a promising but evidence-sensitive mechanism in dopaminergic neurons.</p>
+        <p>{project?.description ?? "This manuscript draft is assembled from project-specific, leader-approved evidence."}</p>
         <h3>1 Introduction</h3>
         <p>The manuscript writer only promotes claims that have passed Leader review and Library storage.<span className="rdos-caret" /></p>
       </article>
@@ -860,12 +913,14 @@ function LibraryScreen({ cards, allCards }: { cards: WorkflowCardData[]; allCard
 }
 
 function ReportsScreen({
+  project,
   reviewCard,
   onStore,
   onRevise,
   onOpenStudio,
   busy,
 }: {
+  project?: ResearchProjectData;
   reviewCard?: WorkflowCardData;
   onStore: () => void;
   onRevise: () => void;
@@ -879,8 +934,8 @@ function ReportsScreen({
         <Icon name="doc" />
         <div>
           <span>Latest Manuscript</span>
-          <h2>Evidence-backed Autophagy Mechanism Draft</h2>
-          <p>Writing Studio · Today · 18 citations</p>
+          <h2>Evidence-backed {project?.shortTitle ?? "Research"} Draft</h2>
+          <p>Writing Studio - {project?.domain ?? "Research"} - 18 citations</p>
         </div>
         <button type="button" onClick={onOpenStudio}>Open in Studio</button>
         <button type="button">Export</button>
@@ -900,7 +955,7 @@ function ReportsScreen({
             <Icon name={index === 2 ? "flask" : "doc"} />
             <em>{index % 3 === 0 ? "Final" : index % 3 === 1 ? "Draft" : "Pending"}</em>
             <strong>{title}</strong>
-            <span>ResearchDino · Today</span>
+            <span>{project?.shortTitle ?? "ResearchDino"} - Today</span>
           </article>
         ))}
       </div>
@@ -908,7 +963,21 @@ function ReportsScreen({
   );
 }
 
-function ProjectsScreen({ onOpenMap }: { onOpenMap: () => void }) {
+function ProjectsScreen({
+  projects,
+  cards,
+  activeProjectId,
+  onSelectProject,
+  onOpenMap,
+}: {
+  projects: ResearchProjectData[];
+  cards: WorkflowCardData[];
+  activeProjectId: string;
+  onSelectProject: (projectId: string) => void;
+  onOpenMap: () => void;
+}) {
+  const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
+  const activeCards = cards.filter((card) => belongsToProject(card, activeProject?.id ?? defaultProjectId));
   return (
     <section>
       <ScreenHeader eyebrow="Projects" title="Research Programs" meta={<button className="rdos-secondary-action" type="button">New Project</button>} />
@@ -916,27 +985,43 @@ function ProjectsScreen({ onOpenMap }: { onOpenMap: () => void }) {
         <Icon name="folder" />
         <div>
           <span className="rdos-live-pill">Active</span>
-          <h2>AutoPhagy Mechanism</h2>
-          <p>Seeded from Smith et al., 2023 · 9 agents</p>
-          <div className="rdos-project-stats"><b>12 Tasks</b><b>6 Running</b><b>4 Outputs</b></div>
+          <h2>{activeProject?.title ?? "Research Project"}</h2>
+          <p>{activeProject?.domain ?? "Research"} - {activeProject?.sourceNote ?? "Source pending"}</p>
+          <div className="rdos-project-stats">
+            <b>{activeCards.length} Tasks</b>
+            <b>{activeCards.filter((card) => runningStatuses.has(card.status)).length} Running</b>
+            <b>{activeCards.filter((card) => completeStatuses.has(card.status)).length} Outputs</b>
+          </div>
         </div>
         <button type="button" onClick={onOpenMap}>Open Lab Map</button>
       </article>
       <div className="rdos-project-grid">
-        {["Tau Propagation", "Gut-Brain Axis", "Mitophagy in ALS", "Neuroinflammation Atlas"].map((title, index) => (
-          <article className="rdos-panel" key={title}>
-            <span className="rdos-eyebrow">{index === 2 ? "Paused" : index === 3 ? "Done" : "Active"}</span>
-            <h2>{title}</h2>
-            <p>Research program · {index + 4} agents</p>
-            <div className="rdos-progress"><i><b style={{ width: `${[58, 44, 28, 100][index]}%` }} /></i></div>
-          </article>
-        ))}
+        {projects.map((project) => {
+          const projectCards = cards.filter((card) => belongsToProject(card, project.id));
+          const running = projectCards.filter((card) => runningStatuses.has(card.status)).length;
+          const waiting = projectCards.filter((card) => waitingStatuses.has(card.status)).length;
+          const progress = Math.min(100, Math.max(18, projectCards.reduce((total, card) => total + card.progress, 0) / Math.max(projectCards.length, 1)));
+          return (
+            <button
+              className={`rdos-project-card${project.id === activeProjectId ? " is-active" : ""}`}
+              type="button"
+              key={project.id}
+              onClick={() => onSelectProject(project.id)}
+            >
+              <span className="rdos-eyebrow">{project.status}</span>
+              <h2>{project.title}</h2>
+              <p>{project.description}</p>
+              <div className="rdos-project-stats"><b>{projectCards.length} Tasks</b><b>{running} Running</b><b>{waiting} Waiting</b></div>
+              <div className="rdos-progress"><i><b style={{ width: `${progress}%` }} /></i></div>
+            </button>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function TasksScreen({ cards }: { cards: WorkflowCardData[] }) {
+function TasksScreen({ cards, project }: { cards: WorkflowCardData[]; project?: ResearchProjectData }) {
   const columns = [
     { title: "Waiting", cards: cards.filter((card) => waitingStatuses.has(card.status)).slice(0, 3) },
     { title: "In Progress", cards: cards.filter((card) => runningStatuses.has(card.status)).slice(0, 4) },
@@ -945,7 +1030,7 @@ function TasksScreen({ cards }: { cards: WorkflowCardData[] }) {
   ];
   return (
     <section>
-      <ScreenHeader eyebrow="Tasks" title="Task Board" meta={<span>AutoPhagy Mechanism · {cards.length} tasks</span>} />
+      <ScreenHeader eyebrow="Tasks" title="Task Board" meta={<span>{project?.title ?? "Research Project"} - {cards.length} tasks</span>} />
       <div className="rdos-kanban">
         {columns.map((column) => (
           <section className="rdos-kanban-column" key={column.title}>

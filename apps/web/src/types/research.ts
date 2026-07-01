@@ -96,6 +96,18 @@ export interface PaperSourceConnector {
   enabled: boolean;
 }
 
+export interface ResearchProjectData {
+  id: string;
+  title: string;
+  shortTitle: string;
+  domain: string;
+  description: string;
+  status: "active" | "paused" | "completed";
+  sourceNote: string;
+  lead: string;
+  createdAt: string;
+}
+
 export interface LaboratoryRoomData {
   id: RoomId;
   title: string;
@@ -118,6 +130,7 @@ export interface LaboratoryRoomData {
 
 export interface WorkflowCardData {
   id: string;
+  projectId: string;
   title: string;
   type: CardType;
   currentRoom: RoomId;
@@ -137,6 +150,7 @@ export interface WorkflowCardData {
 
 export interface AgentLogEntry {
   id: string;
+  projectId: string;
   time: string;
   agent: AgentVariant;
   room: RoomId;

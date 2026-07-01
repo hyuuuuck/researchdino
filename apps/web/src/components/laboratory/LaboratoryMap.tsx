@@ -145,6 +145,7 @@ export function LaboratoryMap() {
     setLogs((currentLogs) => [
       {
         id: `log-${currentLogs.length + 1}`,
+        projectId: "project-autophagy",
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         agent: "leader",
         room: "leader",

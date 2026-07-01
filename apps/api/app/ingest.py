@@ -60,7 +60,10 @@ def extract_pdf_text(path: Path) -> dict[str, Any]:
         }
 
 
-def scan_pdf_folder(folder_path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+def scan_pdf_folder(
+    folder_path: Path,
+    project_id: str = "project-autophagy",
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     scanned_at = current_iso_time()
     paper_records: list[dict[str, Any]] = []
     card_records: list[dict[str, Any]] = []
@@ -74,6 +77,7 @@ def scan_pdf_folder(folder_path: Path) -> tuple[list[dict[str, Any]], list[dict[
             extraction = extract_pdf_text(pdf_path)
             record = {
                 "id": paper_id,
+                "projectId": project_id,
                 "path": str(pdf_path),
                 "fileName": pdf_path.name,
                 "sizeBytes": stat.st_size,
@@ -91,6 +95,7 @@ def scan_pdf_folder(folder_path: Path) -> tuple[list[dict[str, Any]], list[dict[
                 text_records.append(
                     {
                         "id": paper_id,
+                        "projectId": project_id,
                         "paperFileId": paper_id,
                         "text": extraction["text"],
                         "pageCount": extraction["pageCount"],
@@ -103,6 +108,7 @@ def scan_pdf_folder(folder_path: Path) -> tuple[list[dict[str, Any]], list[dict[
             paper_id = f"paper-error-{hashlib.sha256(str(pdf_path).encode()).hexdigest()[:16]}"
             record = {
                 "id": paper_id,
+                "projectId": project_id,
                 "path": str(pdf_path),
                 "fileName": pdf_path.name,
                 "sizeBytes": 0,
@@ -127,6 +133,7 @@ def card_from_paper_record(record: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "id": f"card-{record['id']}",
+        "projectId": record.get("projectId", "project-autophagy"),
         "title": record["fileName"],
         "type": card_type,
         "currentRoom": "collection",

@@ -22,6 +22,7 @@ from .schemas import (
     LeaderDecisionRequest,
     LibraryEntry,
     PaperFileRecord,
+    ResearchProject,
     WorkflowCard,
 )
 from .storage import DB_PATH, get_json, init_db, list_json, put_json
@@ -86,6 +87,11 @@ def rooms() -> list[LaboratoryRoom]:
     return hydrated_rooms
 
 
+@app.get("/projects", response_model=list[ResearchProject])
+def projects() -> list[ResearchProject]:
+    return [ResearchProject(**project) for project in list_json("projects")]
+
+
 @app.get("/cards", response_model=list[WorkflowCard])
 def cards() -> list[WorkflowCard]:
     return [WorkflowCard(**card) for card in list_json("cards")]
@@ -123,6 +129,7 @@ def register_ingest_folder(request: IngestFolderRequest) -> IngestFolderRecord:
     folder = Path(request.path).expanduser().resolve(strict=False)
     record = {
         "id": "active",
+        "projectId": request.projectId,
         "path": str(folder),
         "registeredAt": current_iso_time(),
         "exists": folder.is_dir(),
@@ -156,7 +163,8 @@ def scan_ingest_folder() -> IngestScanResult:
     if not folder.is_dir():
         raise HTTPException(status_code=400, detail="Registered ingest folder does not exist")
 
-    paper_records, card_records, text_records = scan_pdf_folder(folder)
+    project_id = record.get("projectId", "project-autophagy")
+    paper_records, card_records, text_records = scan_pdf_folder(folder, project_id=project_id)
 
     for paper in paper_records:
         put_json("paper_files", paper["id"], paper)
@@ -179,6 +187,7 @@ def scan_ingest_folder() -> IngestScanResult:
         log_id,
         {
             "id": log_id,
+            "projectId": project_id,
             "time": current_clock_time(),
             "agent": "collector",
             "room": "collection",
@@ -216,6 +225,7 @@ def create_leader_decision(request: LeaderDecisionRequest) -> LeaderDecisionReco
     created_at = current_iso_time()
     record = {
         "id": decision_id,
+        "projectId": card.get("projectId", "project-autophagy"),
         "cardId": request.cardId,
         "decision": request.decision,
         "reason": request.reason.strip(),
@@ -241,6 +251,7 @@ def create_leader_decision(request: LeaderDecisionRequest) -> LeaderDecisionReco
         log_id,
         {
             "id": log_id,
+            "projectId": card.get("projectId", "project-autophagy"),
             "time": current_clock_time(),
             "agent": "leader",
             "room": "leader",
@@ -258,6 +269,7 @@ def create_leader_decision(request: LeaderDecisionRequest) -> LeaderDecisionReco
             entry_id,
             {
                 "id": entry_id,
+                "projectId": card.get("projectId", "project-autophagy"),
                 "title": card["title"],
                 "summary": card["summary"],
                 "sourceCardId": card["id"],

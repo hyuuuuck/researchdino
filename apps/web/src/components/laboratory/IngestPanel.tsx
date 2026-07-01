@@ -40,7 +40,7 @@ export function IngestPanel({ dataMode, onScanComplete }: IngestPanelProps) {
     setBusy(true);
     setLastResult(undefined);
     try {
-      const folder = await registerIngestFolder(trimmedPath);
+      const folder = await registerIngestFolder(trimmedPath, "project-autophagy");
       if (!folder.exists) {
         setMessage("Folder was registered, but it does not exist on this machine.");
         return;

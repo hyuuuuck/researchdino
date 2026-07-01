@@ -117,6 +117,18 @@ class PaperSourceConnector(BaseModel):
     enabled: bool
 
 
+class ResearchProject(BaseModel):
+    id: str
+    title: str
+    shortTitle: str
+    domain: str
+    description: str
+    status: Literal["active", "paused", "completed"]
+    sourceNote: str
+    lead: str
+    createdAt: str
+
+
 class LaboratoryRoom(BaseModel):
     id: RoomId
     title: str
@@ -135,6 +147,7 @@ class LaboratoryRoom(BaseModel):
 
 class WorkflowCard(BaseModel):
     id: str
+    projectId: str = "project-autophagy"
     title: str
     type: CardType
     currentRoom: RoomId
@@ -154,6 +167,7 @@ class WorkflowCard(BaseModel):
 
 class AgentLogEntry(BaseModel):
     id: str
+    projectId: str = "project-autophagy"
     time: str
     agent: AgentVariant
     room: RoomId
@@ -171,6 +185,7 @@ class LeaderDecisionRequest(BaseModel):
 
 class LeaderDecisionRecord(BaseModel):
     id: str
+    projectId: str = "project-autophagy"
     cardId: str
     decision: LeaderDecisionValue
     reason: str
@@ -193,6 +208,7 @@ class AgentActionResult(BaseModel):
 
 class LibraryEntry(BaseModel):
     id: str
+    projectId: str = "project-autophagy"
     title: str
     summary: str
     sourceCardId: str
@@ -210,10 +226,12 @@ class ApiMode(BaseModel):
 
 class IngestFolderRequest(BaseModel):
     path: str
+    projectId: str = "project-autophagy"
 
 
 class IngestFolderRecord(BaseModel):
     id: str
+    projectId: str = "project-autophagy"
     path: str
     registeredAt: str
     exists: bool
@@ -221,6 +239,7 @@ class IngestFolderRecord(BaseModel):
 
 class PaperFileRecord(BaseModel):
     id: str
+    projectId: str = "project-autophagy"
     path: str
     fileName: str
     sizeBytes: int
