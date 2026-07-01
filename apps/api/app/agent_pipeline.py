@@ -119,6 +119,43 @@ def run_debate(card_id: str) -> dict[str, Any]:
     hypotheses = detail_list(card, "strategist_hypotheses") or [
         "The observed effect may depend on a delayed adaptive response window.",
     ]
+    debate_protocol = build_debate_protocol(claim_text)
+    agent_positions = build_agent_positions(
+        claim_text,
+        supporting_evidence,
+        opposing_evidence,
+        hypotheses,
+        suggested_experiments,
+    )
+    cross_examination = [
+        f"Critic challenges Reader evidence: {opposing_evidence[0]}",
+        f"Reader must trace the claim back to source spans: {supporting_evidence[0]}",
+        f"Strategist reframes the conflict as a testable gap: {hypotheses[0]}",
+    ]
+    hypothesis_tests = [
+        f"Stress-test hypothesis against opposing evidence: {opposing_evidence[0]}",
+        "Keep the claim provisional unless control, replicate, and source-trace criteria are satisfied.",
+        f"Pass the strongest falsifiable test to Experiment Bay: {suggested_experiments[0]}",
+    ]
+    conclusion = (
+        "The claim is promising but not final. It can move forward only as a provisional research hypothesis "
+        "with explicit controls, replication criteria, and source traceability."
+    )
+    research_strategy_outputs = [
+        "Search adjacent literature for contradiction, replication, and missing-control papers.",
+        "Rank the gap by novelty, feasibility, evidence strength, and manuscript relevance.",
+        "Keep unsupported claims out of the Library until Leader approval.",
+    ]
+    experiment_strategy_outputs = [
+        suggested_experiments[0],
+        "Define positive, vehicle, and unstressed controls before running the protocol.",
+        "Require an orthogonal readout before treating the claim as reusable evidence.",
+    ]
+    decision_criteria = [
+        "Approve only if supporting evidence survives Critic objections.",
+        "Request more evidence if source spans, controls, or replicate counts are incomplete.",
+        "Reject or archive if the hypothesis cannot be made experimentally testable.",
+    ]
 
     card["currentRoom"] = "leader"
     card["status"] = "waiting_for_leader_review"
@@ -140,8 +177,16 @@ def run_debate(card_id: str) -> dict[str, Any]:
             "unresolved_questions": unresolved,
             "suggested_experiments": suggested_experiments,
             "strategist_hypotheses": hypotheses,
+            "debate_protocol": debate_protocol,
+            "agent_positions": agent_positions,
+            "cross_examination": cross_examination,
+            "hypothesis_tests": hypothesis_tests,
+            "debate_conclusion": conclusion,
+            "research_strategy_outputs": research_strategy_outputs,
+            "experiment_strategy_outputs": experiment_strategy_outputs,
+            "decision_criteria": decision_criteria,
             "leader_decision_status": "waiting_for_leader_review",
-            "meeting_summary": "Reader evidence, Critic objections, Strategy hypotheses, and Experiment feasibility were merged into one Leader packet.",
+            "meeting_summary": "Reader evidence, Critic objections, Strategy hypotheses, Experiment feasibility, and Librarian source checks were merged into one Leader packet.",
             "library_save_status": "blocked_until_leader_approval",
         }
     )
@@ -161,6 +206,14 @@ def run_debate(card_id: str) -> dict[str, Any]:
         related_card_id=card["id"],
     )
     write_log(
+        agent="reader",
+        room="debate",
+        level="debate",
+        title="Reader defended source evidence",
+        message=supporting_evidence[0],
+        related_card_id=card["id"],
+    )
+    write_log(
         agent="strategist",
         room="strategy",
         level="info",
@@ -175,6 +228,14 @@ def run_debate(card_id: str) -> dict[str, Any]:
         title="Experiment plan queued",
         message="Experiment deputy drafted an initial feasibility plan from debate outputs.",
         related_card_id=experiment_card["id"],
+    )
+    write_log(
+        agent="librarian",
+        room="library",
+        level="warning",
+        title="Library gate remains closed",
+        message="Librarian will store only Leader-approved claims with source traces and resolved objections.",
+        related_card_id=card["id"],
     )
     write_log(
         agent="coordinator",
@@ -316,6 +377,28 @@ def build_debate_card(
             "suggested_follow_up_papers": ["Search Dock should expand citation and related-work leads."],
             "suggested_experiments": ["Experiment Bay should draft a feasibility check after debate."],
             "strategist_hypotheses": ["Strategy Room should convert the claim into a testable hypothesis."],
+            "debate_protocol": build_debate_protocol(claim_text),
+            "agent_positions": build_agent_positions(
+                claim_text,
+                evidence_items[:2] or ["Metadata indicates the paper is ready for deeper reading."],
+                limitations or ["Full limitation extraction is pending."],
+                ["Strategy Room should convert the claim into a testable hypothesis."],
+                ["Experiment Bay should draft a feasibility check after debate."],
+            ),
+            "cross_examination": [
+                "Critic challenges whether the claim survives controls, sample size, and replication checks.",
+                "Reader must point every defended statement back to source spans.",
+                "Strategist must convert unresolved conflict into a falsifiable gap.",
+            ],
+            "hypothesis_tests": [
+                "Check whether the claim can be falsified by a missing-control result.",
+                "Check whether independent evidence supports or contradicts the same mechanism.",
+                "Check whether the proposed experiment can separate technical artifact from biological effect.",
+            ],
+            "debate_conclusion": "Debate has started; no conclusion until evidence, objections, hypotheses, and feasibility checks are synthesized.",
+            "research_strategy_outputs": ["Expand citation search around contradictions and missing controls."],
+            "experiment_strategy_outputs": ["Draft an initial feasibility test only after Critic objections are listed."],
+            "decision_criteria": ["Leader approval requires traceable evidence and resolved objections."],
             "leader_decision_status": "not_ready",
             "meeting_summary": "Debate has started from Reader extraction.",
             "library_save_status": "not_ready",
@@ -351,6 +434,10 @@ def build_hypothesis_card(
             "Claim source": claim_text,
             "Hypothesis": hypotheses[0],
             "Open questions": unresolved,
+            "Debate conclusion": detail_text(debate_card, "debate_conclusion", "Conclusion pending Leader packet."),
+            "Validation plan": detail_list(debate_card, "hypothesis_tests"),
+            "Research strategy": detail_list(debate_card, "research_strategy_outputs"),
+            "Experiment handoff": detail_list(debate_card, "experiment_strategy_outputs"),
             "Novelty": 64,
             "Feasibility": 58,
             "Impact": 66,
@@ -382,6 +469,9 @@ def build_experiment_card(
         "details": {
             "Strategy source": source_card["id"],
             "Protocol outline": suggested_experiments,
+            "Debate inputs": detail_list(source_card, "cross_examination"),
+            "Hypothesis tests": detail_list(source_card, "hypothesis_tests"),
+            "Decision criteria": detail_list(source_card, "decision_criteria"),
             "Control": "Vehicle and unstressed control",
             "Readout": "Reporter signal plus orthogonal marker",
             "Replicates": "Needs user/lab confirmation",
@@ -417,6 +507,34 @@ def infer_limitations(text: str) -> list[str]:
     if text.strip():
         return ["Reader did not find enough structured limitation text in the first pass."]
     return ["Full-text extraction is not available yet; evidence remains metadata-only."]
+
+
+def build_debate_protocol(claim_text: str) -> list[str]:
+    return [
+        f"Reader presents the claim with source traces: {claim_text}",
+        "Critic attacks evidence strength, controls, statistics, and possible contradictions.",
+        "Strategist turns unresolved conflict into competing hypotheses and research gaps.",
+        "Experiment deputy tests whether each hypothesis can be falsified with realistic controls.",
+        "Librarian checks whether any conclusion is safe to store as reusable knowledge.",
+        "Coordinator synthesizes the strongest conclusion and sends a Leader decision packet.",
+    ]
+
+
+def build_agent_positions(
+    claim_text: str,
+    supporting_evidence: list[str],
+    opposing_evidence: list[str],
+    hypotheses: list[str],
+    suggested_experiments: list[str],
+) -> list[str]:
+    return [
+        f"Reader: defend only source-backed parts of the claim - {claim_text}",
+        f"Critic: pressure-test the weakest point - {opposing_evidence[0] if opposing_evidence else 'missing controls'}",
+        f"Strategist: propose the most useful research gap - {hypotheses[0] if hypotheses else 'hypothesis pending'}",
+        f"Experiment: verify feasibility through controls - {suggested_experiments[0] if suggested_experiments else 'protocol pending'}",
+        f"Librarian: preserve traceable evidence only - {supporting_evidence[0] if supporting_evidence else 'source trace pending'}",
+        "Leader: approve, reject, or request more evidence after the coordinator synthesis.",
+    ]
 
 
 def split_sentences(text: str) -> list[str]:

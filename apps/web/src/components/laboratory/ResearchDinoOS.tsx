@@ -617,42 +617,106 @@ function DebateScreen({
   onRequestEvidence: () => void;
   busy: boolean;
 }) {
+  const claimText = detailText(card, "claim_text", card?.title ?? "No active debate card yet");
+  const sourcePaper = detailText(card, "source_paper", "Source paper pending");
+  const support = detailList(card, "supporting_evidence", ["Reader has not submitted supporting evidence yet."]);
+  const opposition = detailList(card, "opposing_evidence", ["Critic has not submitted objections yet."]);
+  const criticComments = detailList(card, "critic_comments", opposition);
+  const hypotheses = detailList(card, "strategist_hypotheses", ["Strategist hypothesis is pending."]);
+  const experiments = detailList(card, "experiment_strategy_outputs", detailList(card, "suggested_experiments", ["Experiment feasibility is pending."]));
+  const protocol = detailList(card, "debate_protocol", [
+    "Reader presents source-backed claims and evidence traces.",
+    "Critic attacks controls, statistics, contradictions, and missing evidence.",
+    "Strategist converts unresolved conflict into competing hypotheses.",
+    "Experiment deputy checks whether hypotheses can be falsified.",
+    "Librarian blocks unsupported knowledge from storage.",
+    "Coordinator sends a conclusion packet to Leader.",
+  ]);
+  const positions = detailList(card, "agent_positions", [
+    "Reader: defend only source-backed claims.",
+    "Critic: find weak evidence, missing controls, and contradictions.",
+    "Strategist: turn conflict into useful research gaps.",
+    "Experiment: test whether hypotheses are feasible and falsifiable.",
+    "Librarian: store only approved, traceable conclusions.",
+    "Leader: approve, reject, or request more evidence.",
+  ]);
+  const crossExam = detailList(card, "cross_examination", [
+    `Critic challenges: ${criticComments[0]}`,
+    `Reader answers with source trace: ${support[0]}`,
+    `Strategist reframes as hypothesis: ${hypotheses[0]}`,
+  ]);
+  const hypothesisTests = detailList(card, "hypothesis_tests", [
+    "Can the claim survive the strongest opposing evidence?",
+    "Can the mechanism be separated from technical artifact?",
+    "Can Experiment Bay define controls before the claim enters Library?",
+  ]);
+  const researchStrategy = detailList(card, "research_strategy_outputs", [
+    "Expand literature around contradictions, replication, and missing controls.",
+    "Rank gaps by novelty, feasibility, and manuscript value.",
+  ]);
+  const decisionCriteria = detailList(card, "decision_criteria", [
+    "Approve only if source traces, controls, and objections are resolved.",
+    "Request more evidence if any core assumption remains untested.",
+  ]);
+  const conclusion = detailText(
+    card,
+    "debate_conclusion",
+    detailText(
+      card,
+      "meeting_summary",
+      "No final conclusion yet. The debate must synthesize evidence, objections, hypotheses, and feasibility checks first.",
+    ),
+  );
+  const confidence = Math.max(40, Math.min(92, card?.progress ?? 60));
+
   return (
     <section className="rdos-debate-grid">
       <aside className="rdos-panel">
         <span className="rdos-eyebrow">Claim Under Debate</span>
-        <h2>{card?.details.claim_text ?? card?.title ?? "No active debate card yet"}</h2>
+        <h2>{claimText}</h2>
         <div className="rdos-chip-row">
-          <b>Round 3/5</b><b>32 Turns</b><b>Smith et al. 2023</b>
+          <b>{displayStatus(card?.status ?? "waiting_for_claim")}</b><b>{card?.evidenceCount ?? 0} Evidence</b><b>{sourcePaper}</b>
         </div>
         <span className="rdos-live-pill">Debating</span>
-        <Participant name="Critic Dino" role="Challenger" agent="critic" />
-        <Participant name="Reader Dino" role="Evidence" agent="reader" />
-        <Participant name="Strategist Dino" role="Defender" agent="strategist" />
+        <h3>Debate Protocol</h3>
+        <ol className="rdos-debate-protocol">
+          {protocol.map((item) => <li key={item}>{item}</li>)}
+        </ol>
+        <h3>Agent Positions</h3>
+        {positions.slice(0, 6).map((position, index) => (
+          <DebatePosition key={position} agent={["reader", "critic", "strategist", "experiment", "librarian", "leader"][index] as AgentVariant} text={position} />
+        ))}
       </aside>
       <section className="rdos-panel rdos-thread">
-        <span className="rdos-eyebrow">Debate Thread</span>
-        <ThreadMessage agent="critic" name="Critic Dino" tag="Challenge" text="The claim needs stronger controls and independent replication before it can enter the Library." />
-        <ThreadMessage agent="reader" name="Reader Dino" tag="Evidence" text="Reader extracted supporting evidence and marked weak source spans for review." />
-        <ThreadMessage agent="strategist" name="Strategist Dino" tag="Defend" text="The unresolved issue can become a testable hypothesis if Experiment Bay validates the controls." />
-        <ThreadMessage agent="experiment" name="Experiment Dino" tag="Protocol" text="A time-course assay with vehicle and unstressed controls is feasible as a first protocol skeleton." />
+        <span className="rdos-eyebrow">Evidence Debate</span>
+        <div className="rdos-evidence-grid">
+          <EvidenceBox title="Supporting Evidence" items={support} tone="good" />
+          <EvidenceBox title="Opposing Evidence" items={opposition} tone="bad" />
+        </div>
+        <ThreadMessage agent="reader" name="Reader Dino" tag="Evidence" text={support[0]} />
+        <ThreadMessage agent="critic" name="Critic Dino" tag="Cross-Exam" text={crossExam[0]} />
+        <ThreadMessage agent="strategist" name="Strategist Dino" tag="Hypothesis" text={hypotheses[0]} />
+        <ThreadMessage agent="experiment" name="Experiment Dino" tag="Falsify" text={experiments[0]} />
+        <ThreadMessage agent="librarian" name="Librarian Dino" tag="Trace" text="Conclusion cannot enter Library until evidence, objections, and decision criteria are traceable." />
         <div className="rdos-composer">
           <img src={agentAssets.leader} alt="" />
-          <span>Leader asks for a decision-ready packet...</span>
+          <span>Leader waits for a decision-ready conclusion packet...</span>
           <button type="button"><Icon name="send" /></button>
         </div>
       </section>
       <aside className="rdos-panel">
-        <span className="rdos-eyebrow">Scorecard</span>
-        <div className="rdos-score-grid"><b>Support 3</b><b>Challenge 2</b></div>
-        <div className="rdos-confidence"><span>Confidence</span><i><b style={{ width: "68%" }} /></i><em>68%</em></div>
-        <h3>Key Points</h3>
-        <ul className="rdos-keypoints">
-          <li className="good">Evidence packet is ready for Leader review.</li>
-          <li className="bad">Control condition remains under-specified.</li>
-          <li>Experiment Bay can draft a protocol skeleton.</li>
-        </ul>
-        <button className="rdos-primary-action" type="button" disabled={busy || !card} onClick={onRunDebate}>Accept & Send to Leader</button>
+        <span className="rdos-eyebrow">Synthesis</span>
+        <div className="rdos-score-grid"><b>{support.length} Support</b><b>{opposition.length} Objections</b><b>{hypothesisTests.length} Tests</b><b>{experiments.length} Protocols</b></div>
+        <div className="rdos-confidence"><span>Conclusion Readiness</span><i><b style={{ width: `${confidence}%` }} /></i><em>{confidence}%</em></div>
+        <div className="rdos-conclusion-box">
+          <strong>Current Conclusion</strong>
+          <p>{conclusion}</p>
+        </div>
+        <MiniList title="Hypothesis Tests" items={hypothesisTests} />
+        <MiniList title="Research Strategy" items={researchStrategy} />
+        <MiniList title="Experiment Strategy" items={experiments} />
+        <MiniList title="Decision Criteria" items={decisionCriteria} />
+        <button className="rdos-primary-action" type="button" disabled={busy || !card} onClick={onRunDebate}>Run Structured Debate</button>
         <button className="rdos-secondary-action" type="button" onClick={onRequestEvidence}>Request More Evidence</button>
       </aside>
     </section>
@@ -986,6 +1050,20 @@ function SourceConnectorRow({ connector }: { connector: PaperSourceConnector }) 
   );
 }
 
+function detailText(card: WorkflowCardData | undefined, key: string, fallback: string) {
+  const value = card?.details[key];
+  if (Array.isArray(value)) return value.join(", ");
+  if (value === undefined || value === null || value === "") return fallback;
+  return String(value);
+}
+
+function detailList(card: WorkflowCardData | undefined, key: string, fallback: string[] = []) {
+  const value = card?.details[key];
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (value === undefined || value === null || value === "") return fallback;
+  return [String(value)];
+}
+
 function ScreenHeader({ eyebrow, title, meta }: { eyebrow: string; title: string; meta?: ReactNode }) {
   return (
     <header className="rdos-screen-header">
@@ -995,6 +1073,41 @@ function ScreenHeader({ eyebrow, title, meta }: { eyebrow: string; title: string
       </div>
       {meta && <div>{meta}</div>}
     </header>
+  );
+}
+
+function DebatePosition({ agent, text }: { agent: AgentVariant; text: string }) {
+  const [label, ...body] = text.split(":");
+  return (
+    <div className="rdos-debate-position">
+      <img src={agentAssets[agent]} alt="" />
+      <div>
+        <strong>{body.length > 0 ? label : `${agent} Dino`}</strong>
+        <span>{body.length > 0 ? body.join(":").trim() : text}</span>
+      </div>
+    </div>
+  );
+}
+
+function EvidenceBox({ title, items, tone }: { title: string; items: string[]; tone: "bad" | "good" }) {
+  return (
+    <article className={`rdos-evidence-box is-${tone}`}>
+      <strong>{title}</strong>
+      <ul>
+        {items.slice(0, 3).map((item) => <li key={item}>{item}</li>)}
+      </ul>
+    </article>
+  );
+}
+
+function MiniList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <section className="rdos-mini-list">
+      <h3>{title}</h3>
+      <ul>
+        {items.slice(0, 3).map((item) => <li key={item}>{item}</li>)}
+      </ul>
+    </section>
   );
 }
 
