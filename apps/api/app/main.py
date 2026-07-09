@@ -14,6 +14,10 @@ from .schemas import (
     AgentActionResult,
     AgentLogEntry,
     ApiMode,
+    DebateSessionRecord,
+    EvidenceRecord,
+    ExperimentPlanRecord,
+    HypothesisRecord,
     IngestFolderRecord,
     IngestFolderRequest,
     IngestScanResult,
@@ -24,6 +28,7 @@ from .schemas import (
     LeaderDecisionRequest,
     LibraryEntry,
     PaperFileRecord,
+    ResearchClaim,
     ResearchProject,
     ResearchProjectCreateRequest,
     WorkflowCard,
@@ -297,6 +302,36 @@ def leader_decisions() -> list[LeaderDecisionRecord]:
 @app.get("/library", response_model=list[LibraryEntry])
 def library() -> list[LibraryEntry]:
     entries = [LibraryEntry(**entry) for entry in list_json("library_entries")]
+    return list(reversed(entries))
+
+
+@app.get("/claims", response_model=list[ResearchClaim])
+def claims() -> list[ResearchClaim]:
+    entries = [ResearchClaim(**entry) for entry in list_json("claims")]
+    return list(reversed(entries))
+
+
+@app.get("/evidence", response_model=list[EvidenceRecord])
+def evidence() -> list[EvidenceRecord]:
+    entries = [EvidenceRecord(**entry) for entry in list_json("evidence_items")]
+    return list(reversed(entries))
+
+
+@app.get("/debate-sessions", response_model=list[DebateSessionRecord])
+def debate_sessions() -> list[DebateSessionRecord]:
+    entries = [DebateSessionRecord(**entry) for entry in list_json("debate_sessions")]
+    return list(reversed(entries))
+
+
+@app.get("/hypotheses", response_model=list[HypothesisRecord])
+def hypotheses() -> list[HypothesisRecord]:
+    entries = [HypothesisRecord(**entry) for entry in list_json("hypotheses")]
+    return list(reversed(entries))
+
+
+@app.get("/experiment-plans", response_model=list[ExperimentPlanRecord])
+def experiment_plans() -> list[ExperimentPlanRecord]:
+    entries = [ExperimentPlanRecord(**entry) for entry in list_json("experiment_plans")]
     return list(reversed(entries))
 
 

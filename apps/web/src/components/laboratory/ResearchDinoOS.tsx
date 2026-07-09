@@ -14,9 +14,14 @@ import {
   type AgentActionValue,
   type CreateResearchProjectInput,
   type CreateWorkflowCardInput,
+  type DebateSessionRecord,
+  type EvidenceRecord,
+  type ExperimentPlanRecord,
+  type HypothesisRecord,
   type IngestScanResult,
   type LeaderDecisionValue,
   type PatchLabInstanceInput,
+  type ResearchClaimRecord,
   type ResearchDataMode,
   type ResearchLabState,
   type UpdateWorkflowCardInput,
@@ -448,6 +453,11 @@ export function ResearchDinoOS() {
   const [rooms, setRooms] = useState<LaboratoryRoomData[]>(initialResearchLabState.rooms);
   const [cards, setCards] = useState<WorkflowCardData[]>(initialResearchLabState.cards);
   const [logs, setLogs] = useState<AgentLogEntry[]>(initialResearchLabState.logs);
+  const [claims, setClaims] = useState<ResearchClaimRecord[]>(initialResearchLabState.claims);
+  const [evidence, setEvidence] = useState<EvidenceRecord[]>(initialResearchLabState.evidence);
+  const [debateSessions, setDebateSessions] = useState<DebateSessionRecord[]>(initialResearchLabState.debateSessions);
+  const [hypotheses, setHypotheses] = useState<HypothesisRecord[]>(initialResearchLabState.hypotheses);
+  const [experimentPlans, setExperimentPlans] = useState<ExperimentPlanRecord[]>(initialResearchLabState.experimentPlans);
   const [dataMode, setDataMode] = useState<ResearchDataMode>(initialResearchLabState.mode);
   const [loadError, setLoadError] = useState<string>();
   const [actionMessage, setActionMessage] = useState("");
@@ -466,6 +476,11 @@ export function ResearchDinoOS() {
     setRooms(nextState.rooms);
     setCards(nextState.cards);
     setLogs(nextState.logs);
+    setClaims(nextState.claims);
+    setEvidence(nextState.evidence);
+    setDebateSessions(nextState.debateSessions);
+    setHypotheses(nextState.hypotheses);
+    setExperimentPlans(nextState.experimentPlans);
     setDataMode(nextState.mode);
   }
 
@@ -533,6 +548,18 @@ export function ResearchDinoOS() {
       successRate: 98,
     };
   }, [projectCards, rooms]);
+
+  const ledgerStats = useMemo(() => {
+    const projectId = activeProject?.id ?? defaultProjectId;
+    const inScope = (item: { projectId?: string; labId?: string }) => belongsToProject(item, projectId) && belongsToLabInstance(item, activeLab);
+    return {
+      claims: claims.filter(inScope).length,
+      evidence: evidence.filter(inScope).length,
+      debateSessions: debateSessions.filter(inScope).length,
+      hypotheses: hypotheses.filter(inScope).length,
+      experimentPlans: experimentPlans.filter(inScope).length,
+    };
+  }, [activeLab?.id, activeProject?.id, claims, debateSessions, evidence, experimentPlans, hypotheses]);
 
   function setParallelMode(mode: LabParallelMode) {
     setParallelModeState(mode);
@@ -986,6 +1013,7 @@ export function ResearchDinoOS() {
               <ReportsScreen
                 project={activeProject}
                 reviewCard={reviewCards[0]}
+                ledgerStats={ledgerStats}
                 onStore={() => handleLeaderDecision(reviewCards[0], "stored_in_library")}
                 onRevise={() => handleLeaderDecision(reviewCards[0], "needs_revision")}
                 onOpenStudio={() => setScreen("report")}
@@ -1891,6 +1919,7 @@ function LibraryScreen({
 function ReportsScreen({
   project,
   reviewCard,
+  ledgerStats,
   onStore,
   onRevise,
   onOpenStudio,
@@ -1898,6 +1927,13 @@ function ReportsScreen({
 }: {
   project?: ResearchProjectData;
   reviewCard?: WorkflowCardData;
+  ledgerStats: {
+    claims: number;
+    evidence: number;
+    debateSessions: number;
+    hypotheses: number;
+    experimentPlans: number;
+  };
   onStore: () => void;
   onRevise: () => void;
   onOpenStudio: () => void;
@@ -1922,7 +1958,19 @@ function ReportsScreen({
         <p>{reviewCard?.summary ?? "Debate outputs that require user approval will appear here."}</p>
         <div className="rdos-action-row">
           <button className="rdos-primary-action" type="button" disabled={busy || !reviewCard} onClick={onStore}>Send to Library</button>
-          <button className="rdos-secondary-action" type="button" disabled={busy || !reviewCard} onClick={onRevise}>Request Revision</button>
+        <button className="rdos-secondary-action" type="button" disabled={busy || !reviewCard} onClick={onRevise}>Request Revision</button>
+      </div>
+    </section>
+      <section className="rdos-panel rdos-ledger-panel">
+        <span className="rdos-eyebrow">Structured Ledger</span>
+        <h2>Traceable Research Records</h2>
+        <p>Cards are now backed by normalized records for claim, evidence, debate, strategy, and experiment tracking.</p>
+        <div className="rdos-ledger-grid">
+          <div><span>Claims</span><b>{ledgerStats.claims}</b></div>
+          <div><span>Evidence</span><b>{ledgerStats.evidence}</b></div>
+          <div><span>Debates</span><b>{ledgerStats.debateSessions}</b></div>
+          <div><span>Hypotheses</span><b>{ledgerStats.hypotheses}</b></div>
+          <div><span>Experiments</span><b>{ledgerStats.experimentPlans}</b></div>
         </div>
       </section>
       <div className="rdos-card-grid">

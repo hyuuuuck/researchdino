@@ -21,6 +21,11 @@ export interface ResearchLabState {
   rooms: LaboratoryRoomData[];
   cards: WorkflowCardData[];
   logs: AgentLogEntry[];
+  claims: ResearchClaimRecord[];
+  evidence: EvidenceRecord[];
+  debateSessions: DebateSessionRecord[];
+  hypotheses: HypothesisRecord[];
+  experimentPlans: ExperimentPlanRecord[];
   mode: ResearchDataMode;
 }
 
@@ -48,6 +53,93 @@ export interface AgentActionResult {
   updatedCardIds: string[];
   createdCardIds: string[];
   message: string;
+}
+
+export interface ResearchClaimRecord {
+  id: string;
+  projectId: string;
+  labId?: string;
+  paperId?: string;
+  sourceCardId: string;
+  text: string;
+  type: string;
+  status: WorkflowStatus;
+  approvalStatus: string;
+  supportLevel: string;
+  evidenceIds: string[];
+  debateSessionId?: string;
+  requiresUserReview: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EvidenceRecord {
+  id: string;
+  projectId: string;
+  labId?: string;
+  claimId: string;
+  paperId?: string;
+  sourceCardId: string;
+  excerpt: string;
+  interpretation: string;
+  strength: string;
+  confidence: number;
+  locator: Record<string, string | number | null>;
+  createdAt: string;
+}
+
+export interface DebateSessionRecord {
+  id: string;
+  projectId: string;
+  labId?: string;
+  sourceCardId: string;
+  claimId?: string;
+  topic: string;
+  status: string;
+  targetRefs: Array<Record<string, string>>;
+  participantAgents: string[];
+  supportingEvidenceIds: string[];
+  opposingEvidence: string[];
+  unresolvedQuestions: string[];
+  hypotheses: string[];
+  suggestedExperiments: string[];
+  outcomeSummary: string;
+  librarySaveStatus: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HypothesisRecord {
+  id: string;
+  projectId: string;
+  labId?: string;
+  sourceCardId: string;
+  debateSessionId?: string;
+  statement: string;
+  rationale: string;
+  openQuestions: string[];
+  validationPlan: string[];
+  status: WorkflowStatus;
+  requiresUserReview: boolean;
+  createdAt: string;
+}
+
+export interface ExperimentPlanRecord {
+  id: string;
+  projectId: string;
+  labId?: string;
+  sourceCardId: string;
+  hypothesisId?: string;
+  debateSessionId?: string;
+  title: string;
+  objective: string;
+  controls: string[];
+  readouts: string[];
+  protocolOutline: string[];
+  failureRisks: string[];
+  status: WorkflowStatus;
+  approvalStatus: string;
+  createdAt: string;
 }
 
 export interface CreateWorkflowCardInput {
@@ -95,6 +187,11 @@ export function getDemoResearchLabState(): ResearchLabState {
     labInstances,
     cards: initialWorkflowCards,
     logs: agentLogs,
+    claims: [],
+    evidence: [],
+    debateSessions: [],
+    hypotheses: [],
+    experimentPlans: [],
     mode: "demo",
   };
 }
@@ -120,12 +217,17 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     return getDemoResearchLabState();
   }
 
-  const [projects, labInstances, rooms, cards, logs] = await Promise.all([
+  const [projects, labInstances, rooms, cards, logs, claims, evidence, debateSessions, hypotheses, experimentPlans] = await Promise.all([
     fetchJson<ResearchProjectData[]>("/projects"),
     fetchJson<LabInstanceData[]>("/lab-instances"),
     fetchJson<LaboratoryRoomData[]>("/rooms"),
     fetchJson<WorkflowCardData[]>("/cards"),
     fetchJson<AgentLogEntry[]>("/agent-logs"),
+    fetchJson<ResearchClaimRecord[]>("/claims"),
+    fetchJson<EvidenceRecord[]>("/evidence"),
+    fetchJson<DebateSessionRecord[]>("/debate-sessions"),
+    fetchJson<HypothesisRecord[]>("/hypotheses"),
+    fetchJson<ExperimentPlanRecord[]>("/experiment-plans"),
   ]);
 
   return {
@@ -134,6 +236,11 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     rooms,
     cards,
     logs,
+    claims,
+    evidence,
+    debateSessions,
+    hypotheses,
+    experimentPlans,
     mode: "api",
   };
 }

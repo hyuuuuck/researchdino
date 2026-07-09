@@ -279,6 +279,93 @@ class LibraryEntry(BaseModel):
     storedAt: str
 
 
+class ResearchClaim(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    paperId: str | None = None
+    sourceCardId: str
+    text: str
+    type: Literal["finding", "method", "mechanism", "limitation", "contradiction", "research_gap", "background"] = "finding"
+    status: WorkflowStatus
+    approvalStatus: ApprovalStatus
+    supportLevel: Literal["strong", "moderate", "weak", "contradictory", "unsupported"] = "moderate"
+    evidenceIds: list[str] = Field(default_factory=list)
+    debateSessionId: str | None = None
+    requiresUserReview: bool
+    createdAt: str
+    updatedAt: str
+
+
+class EvidenceRecord(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    claimId: str
+    paperId: str | None = None
+    sourceCardId: str
+    excerpt: str
+    interpretation: str
+    strength: Literal["strong", "moderate", "weak", "contradictory", "unsupported"] = "moderate"
+    confidence: int = Field(ge=0, le=100)
+    locator: dict[str, str | int | None] = Field(default_factory=dict)
+    createdAt: str
+
+
+class DebateSessionRecord(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    sourceCardId: str
+    claimId: str | None = None
+    topic: str
+    status: Literal["queued", "active", "needs_leader_review", "resolved", "failed"]
+    targetRefs: list[dict[str, str]] = Field(default_factory=list)
+    participantAgents: list[AgentVariant] = Field(default_factory=list)
+    supportingEvidenceIds: list[str] = Field(default_factory=list)
+    opposingEvidence: list[str] = Field(default_factory=list)
+    unresolvedQuestions: list[str] = Field(default_factory=list)
+    hypotheses: list[str] = Field(default_factory=list)
+    suggestedExperiments: list[str] = Field(default_factory=list)
+    outcomeSummary: str
+    librarySaveStatus: str
+    createdAt: str
+    updatedAt: str
+
+
+class HypothesisRecord(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    sourceCardId: str
+    debateSessionId: str | None = None
+    statement: str
+    rationale: str
+    openQuestions: list[str] = Field(default_factory=list)
+    validationPlan: list[str] = Field(default_factory=list)
+    status: WorkflowStatus
+    requiresUserReview: bool
+    createdAt: str
+
+
+class ExperimentPlanRecord(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    sourceCardId: str
+    hypothesisId: str | None = None
+    debateSessionId: str | None = None
+    title: str
+    objective: str
+    controls: list[str] = Field(default_factory=list)
+    readouts: list[str] = Field(default_factory=list)
+    protocolOutline: list[str] = Field(default_factory=list)
+    failureRisks: list[str] = Field(default_factory=list)
+    status: WorkflowStatus
+    approvalStatus: ApprovalStatus
+    createdAt: str
+
+
 class ApiMode(BaseModel):
     mode: Literal["api"]
     source: Literal["sqlite"]

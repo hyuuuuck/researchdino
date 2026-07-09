@@ -46,3 +46,14 @@ The MVP exposes `POST /agent-actions` for local deterministic workflow actions:
 
 These actions do not call an LLM yet. They create traceable workflow state so
 Ollama or remote model deputies can be wired into the same action boundary later.
+
+## Structured Research Ledger
+
+Pipeline actions also persist normalized research records behind the workflow
+cards:
+
+- `GET /claims`
+- `GET /evidence`
+- `GET /debate-sessions`
+- `GET /hypotheses`
+- `GET /experiment-plans`

@@ -16,6 +16,10 @@ def current_clock_time() -> str:
     return datetime.now().strftime("%H:%M")
 
 
+def current_iso_time() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
 def card_project_id(card: dict[str, Any]) -> str:
     return str(card.get("projectId") or "project-autophagy")
 
@@ -98,6 +102,7 @@ def run_reader(card_id: str) -> dict[str, Any]:
     claim_text = infer_claim_text(card, text)
     evidence_items = infer_evidence_items(card, text)
     limitations = infer_limitations(text)
+    claim_id, evidence_record_ids = persist_reader_records(card, paper_id, claim_text, evidence_items)
 
     card["currentRoom"] = "reading"
     card["status"] = "running"
@@ -117,13 +122,15 @@ def run_reader(card_id: str) -> dict[str, Any]:
             "Reader status": "parsed_text" if parsed else "metadata_only",
             "Claim candidates": [claim_text],
             "Evidence candidates": evidence_items,
+            "Claim record": claim_id,
+            "Evidence records": evidence_record_ids,
             "Limitations": limitations,
             "Next room": "Debate Room",
         }
     )
     put_json("cards", card["id"], card)
 
-    debate_card = build_debate_card(card, claim_text, evidence_items, limitations)
+    debate_card = build_debate_card(card, claim_text, evidence_items, limitations, claim_id, evidence_record_ids)
     put_json("cards", debate_card["id"], debate_card)
 
     write_log(
@@ -230,6 +237,7 @@ def run_debate(card_id: str) -> dict[str, Any]:
     card.setdefault("details", {})
     card["details"].update(
         {
+            "claim_id": detail_text(card, "claim_id", f"claim-{card.get('sourcePaperId') or card['id']}"),
             "supporting_evidence": supporting_evidence,
             "opposing_evidence": opposing_evidence,
             "critic_comments": detail_list(card, "critic_comments")
@@ -251,11 +259,23 @@ def run_debate(card_id: str) -> dict[str, Any]:
         }
     )
     put_json("cards", card["id"], card)
+    persist_debate_session(
+        card,
+        claim_text,
+        supporting_evidence,
+        opposing_evidence,
+        unresolved,
+        hypotheses,
+        suggested_experiments,
+        conclusion,
+    )
 
     hypothesis_card = build_hypothesis_card(card, claim_text, hypotheses, unresolved)
     experiment_card = build_experiment_card(card, suggested_experiments)
     put_json("cards", hypothesis_card["id"], hypothesis_card)
     put_json("cards", experiment_card["id"], experiment_card)
+    persist_hypothesis_record(hypothesis_card, card)
+    persist_experiment_plan_record(experiment_card, card)
 
     write_log(
         agent="critic",
@@ -345,6 +365,7 @@ def design_experiment(card_id: str) -> dict[str, Any]:
     experiment_card["status"] = "running"
     experiment_card["progress"] = 46
     put_json("cards", experiment_card["id"], experiment_card)
+    persist_experiment_plan_record(experiment_card, card)
 
     card["lastAgent"] = "experiment"
     card["lastUpdated"] = current_clock_time()
@@ -424,6 +445,8 @@ def build_debate_card(
     claim_text: str,
     evidence_items: list[str],
     limitations: list[str],
+    claim_id: str,
+    evidence_record_ids: list[str],
 ) -> dict[str, Any]:
     paper_id = paper_card.get("sourcePaperId") or paper_card["id"]
     debate_id = f"debate-{paper_id}"
@@ -448,8 +471,10 @@ def build_debate_card(
             "debate_session_id": f"DB-{paper_id[-8:]}",
             "source_paper": paper_card["title"],
             "target_claim": f"claim-{paper_id[-6:]}",
+            "claim_id": claim_id,
             "claim_text": claim_text,
             "evidence_items": evidence_items,
+            "evidence_record_ids": evidence_record_ids,
             "supporting_evidence": evidence_items[:2] or ["Metadata indicates the paper is ready for deeper reading."],
             "opposing_evidence": limitations or ["Full limitation extraction is pending."],
             "critic_comments": ["Controls, sample size, and replication must be checked before approval."],
@@ -514,6 +539,8 @@ def build_hypothesis_card(
         "summary": "Strategy Room generated a testable hypothesis from debate outputs.",
         "details": {
             "Claim source": claim_text,
+            "claim_id": detail_text(debate_card, "claim_id", ""),
+            "debate_session_id": detail_text(debate_card, "debate_session_id", ""),
             "Hypothesis": hypotheses[0],
             "Open questions": unresolved,
             "Debate conclusion": detail_text(debate_card, "debate_conclusion", "Conclusion pending Leader packet."),
@@ -552,6 +579,9 @@ def build_experiment_card(
         "summary": "Experiment Bay drafted an initial protocol plan from strategy/debate outputs.",
         "details": {
             "Strategy source": source_card["id"],
+            "claim_id": detail_text(source_card, "claim_id", ""),
+            "debate_session_id": detail_text(source_card, "debate_session_id", ""),
+            "hypothesis_id": source_card["id"] if source_card.get("type") == "hypothesis" else "",
             "Protocol outline": suggested_experiments,
             "Debate inputs": detail_list(source_card, "cross_examination"),
             "Hypothesis tests": detail_list(source_card, "hypothesis_tests"),
@@ -619,6 +649,178 @@ def build_agent_positions(
         f"Librarian: preserve traceable evidence only - {supporting_evidence[0] if supporting_evidence else 'source trace pending'}",
         "Leader: approve, reject, or request more evidence after the coordinator synthesis.",
     ]
+
+
+def persist_reader_records(
+    card: dict[str, Any],
+    paper_id: str,
+    claim_text: str,
+    evidence_items: list[str],
+) -> tuple[str, list[str]]:
+    now = current_iso_time()
+    claim_id = f"claim-{paper_id}"
+    evidence_ids: list[str] = []
+
+    for index, excerpt in enumerate(evidence_items, start=1):
+        evidence_id = f"evidence-{paper_id}-{index}"
+        evidence_ids.append(evidence_id)
+        put_json(
+            "evidence_items",
+            evidence_id,
+            {
+                "id": evidence_id,
+                "projectId": card_project_id(card),
+                "labId": card_lab_id(card),
+                "claimId": claim_id,
+                "paperId": paper_id,
+                "sourceCardId": card["id"],
+                "excerpt": excerpt,
+                "interpretation": "Reader extracted this as provisional support for debate.",
+                "strength": "moderate" if index == 1 else "weak",
+                "confidence": max(45, 78 - index * 8),
+                "locator": {
+                    "paperId": paper_id,
+                    "sectionId": "reader_pass",
+                    "paragraphIndex": index,
+                },
+                "createdAt": now,
+            },
+        )
+
+    put_json(
+        "claims",
+        claim_id,
+        {
+            "id": claim_id,
+            "projectId": card_project_id(card),
+            "labId": card_lab_id(card),
+            "paperId": paper_id,
+            "sourceCardId": card["id"],
+            "text": claim_text,
+            "type": "finding",
+            "status": "running",
+            "approvalStatus": "draft",
+            "supportLevel": "moderate" if evidence_ids else "unsupported",
+            "evidenceIds": evidence_ids,
+            "debateSessionId": None,
+            "requiresUserReview": False,
+            "createdAt": now,
+            "updatedAt": now,
+        },
+    )
+    return claim_id, evidence_ids
+
+
+def persist_debate_session(
+    card: dict[str, Any],
+    claim_text: str,
+    supporting_evidence: list[str],
+    opposing_evidence: list[str],
+    unresolved: list[str],
+    hypotheses: list[str],
+    suggested_experiments: list[str],
+    conclusion: str,
+) -> str:
+    now = current_iso_time()
+    session_id = detail_text(card, "debate_session_id", f"DB-{card['id'][-8:]}")
+    claim_id = detail_text(card, "claim_id", "")
+    evidence_ids = detail_list(card, "evidence_record_ids")
+
+    put_json(
+        "debate_sessions",
+        session_id,
+        {
+            "id": session_id,
+            "projectId": card_project_id(card),
+            "labId": card_lab_id(card),
+            "sourceCardId": card["id"],
+            "claimId": claim_id or None,
+            "topic": claim_text,
+            "status": "needs_leader_review",
+            "targetRefs": [{"kind": "claim", "id": claim_id}] if claim_id else [{"kind": "card", "id": card["id"]}],
+            "participantAgents": ["reader", "critic", "strategist", "experiment", "librarian", "leader"],
+            "supportingEvidenceIds": evidence_ids,
+            "opposingEvidence": opposing_evidence,
+            "unresolvedQuestions": unresolved,
+            "hypotheses": hypotheses,
+            "suggestedExperiments": suggested_experiments,
+            "outcomeSummary": conclusion,
+            "librarySaveStatus": "blocked_until_leader_approval",
+            "createdAt": now,
+            "updatedAt": now,
+        },
+    )
+
+    if claim_id:
+        claim = get_json("claims", claim_id)
+        if claim is not None:
+            claim.update(
+                {
+                    "status": card["status"],
+                    "approvalStatus": card["approvalStatus"],
+                    "supportLevel": "moderate" if supporting_evidence else "weak",
+                    "debateSessionId": session_id,
+                    "requiresUserReview": True,
+                    "updatedAt": now,
+                },
+            )
+            put_json("claims", claim_id, claim)
+
+    return session_id
+
+
+def persist_hypothesis_record(hypothesis_card: dict[str, Any], source_card: dict[str, Any]) -> None:
+    now = current_iso_time()
+    hypothesis_id = hypothesis_card["id"]
+    put_json(
+        "hypotheses",
+        hypothesis_id,
+        {
+            "id": hypothesis_id,
+            "projectId": card_project_id(hypothesis_card),
+            "labId": card_lab_id(hypothesis_card),
+            "sourceCardId": source_card["id"],
+            "debateSessionId": detail_text(hypothesis_card, "debate_session_id", "") or None,
+            "statement": detail_text(hypothesis_card, "Hypothesis", hypothesis_card["title"]),
+            "rationale": detail_text(source_card, "debate_conclusion", hypothesis_card["summary"]),
+            "openQuestions": detail_list(hypothesis_card, "Open questions"),
+            "validationPlan": detail_list(hypothesis_card, "Validation plan"),
+            "status": hypothesis_card["status"],
+            "requiresUserReview": hypothesis_card["requiresUserReview"],
+            "createdAt": now,
+        },
+    )
+
+
+def persist_experiment_plan_record(experiment_card: dict[str, Any], source_card: dict[str, Any]) -> None:
+    now = current_iso_time()
+    controls = [
+        detail_text(experiment_card, "Control", "Vehicle and unstressed control"),
+    ]
+    readouts = [
+        detail_text(experiment_card, "Readout", "Primary readout plus orthogonal marker"),
+    ]
+    put_json(
+        "experiment_plans",
+        experiment_card["id"],
+        {
+            "id": experiment_card["id"],
+            "projectId": card_project_id(experiment_card),
+            "labId": card_lab_id(experiment_card),
+            "sourceCardId": source_card["id"],
+            "hypothesisId": detail_text(experiment_card, "hypothesis_id", "") or None,
+            "debateSessionId": detail_text(experiment_card, "debate_session_id", "") or None,
+            "title": experiment_card["title"],
+            "objective": experiment_card["summary"],
+            "controls": controls,
+            "readouts": readouts,
+            "protocolOutline": detail_list(experiment_card, "Protocol outline"),
+            "failureRisks": [detail_text(experiment_card, "Failure point", "Protocol risk pending")],
+            "status": experiment_card["status"],
+            "approvalStatus": experiment_card["approvalStatus"],
+            "createdAt": now,
+        },
+    )
 
 
 def split_sentences(text: str) -> list[str]:
