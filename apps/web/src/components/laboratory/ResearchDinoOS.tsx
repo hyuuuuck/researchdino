@@ -965,6 +965,7 @@ export function ResearchDinoOS() {
               <DebateScreen
                 card={activeDebate}
                 onRunDebate={() => handleAgentAction(activeDebate, "run_debate", "reports")}
+                onRunPipeline={() => handleAgentAction(activeDebate, "run_research_pipeline", "reports")}
                 onRequestEvidence={() => setScreen("reader")}
                 busy={Boolean(busyAction)}
               />
@@ -974,6 +975,7 @@ export function ResearchDinoOS() {
                 card={activePaper}
                 project={activeProject}
                 onRunReader={() => handleAgentAction(activePaper, "run_reader", "debate")}
+                onRunPipeline={() => handleAgentAction(activePaper, "run_research_pipeline", "reports")}
                 busy={Boolean(busyAction)}
               />
             )}
@@ -1383,11 +1385,13 @@ function MapInfoCards({ stats }: { stats: { online: number; running: number; wai
 function DebateScreen({
   card,
   onRunDebate,
+  onRunPipeline,
   onRequestEvidence,
   busy,
 }: {
   card?: WorkflowCardData;
   onRunDebate: () => void;
+  onRunPipeline: () => void;
   onRequestEvidence: () => void;
   busy: boolean;
 }) {
@@ -1491,6 +1495,7 @@ function DebateScreen({
         <MiniList title="Experiment Strategy" items={experiments} />
         <MiniList title="Decision Criteria" items={decisionCriteria} />
         <button className="rdos-primary-action" type="button" disabled={busy || !card} onClick={onRunDebate}>Run Structured Debate</button>
+        <button className="rdos-secondary-action" type="button" disabled={busy || !card} onClick={onRunPipeline}>Send Full Packet To Leader</button>
         <button className="rdos-secondary-action" type="button" onClick={onRequestEvidence}>Request More Evidence</button>
       </aside>
     </section>
@@ -1501,11 +1506,13 @@ function ReaderScreen({
   card,
   project,
   onRunReader,
+  onRunPipeline,
   busy,
 }: {
   card?: WorkflowCardData;
   project?: ResearchProjectData;
   onRunReader: () => void;
+  onRunPipeline: () => void;
   busy: boolean;
 }) {
   const sections = detailList(card, "Sections", ["Abstract", "Methods", "Results", "Limitations"]);
@@ -1547,6 +1554,7 @@ function ReaderScreen({
             <button type="button" disabled={busy || !card} onClick={onRunReader}>Send to Debate</button>
           </div>
         ))}
+        <button className="rdos-primary-action" type="button" disabled={busy || !card} onClick={onRunPipeline}>Run To Leader Review</button>
       </aside>
     </section>
   );

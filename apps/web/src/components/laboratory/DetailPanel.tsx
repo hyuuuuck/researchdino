@@ -42,6 +42,7 @@ const agentActionLabels: Record<AgentActionValue, string> = {
   run_debate: "Run Debate",
   design_experiment: "Design Experiment",
   draft_manuscript: "Draft Manuscript",
+  run_research_pipeline: "Run Pipeline",
 };
 
 function getAvailableActions(card: WorkflowCardData): AgentActionValue[] {
@@ -51,8 +52,8 @@ function getAvailableActions(card: WorkflowCardData): AgentActionValue[] {
   if (card.status === "stored_in_library" || card.approvalStatus === "approved" || card.currentRoom === "library") {
     return ["draft_manuscript"];
   }
-  if (card.type === "paper") return ["run_reader"];
-  if (isDebateCard(card) || card.type === "paper_review") return ["run_debate"];
+  if (card.type === "paper") return ["run_reader", "run_research_pipeline"];
+  if (isDebateCard(card) || card.type === "paper_review") return ["run_debate", "run_research_pipeline"];
   if (card.type === "hypothesis" || card.type === "experiment_feasibility") return ["design_experiment"];
   return [];
 }

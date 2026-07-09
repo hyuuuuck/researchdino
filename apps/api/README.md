@@ -42,6 +42,7 @@ The MVP exposes `POST /agent-actions` for local deterministic workflow actions:
 - `run_debate`: consolidate debate outputs, route the card to Leader Office, and create Strategy / Experiment follow-up cards.
 - `design_experiment`: create an Experiment Bay protocol skeleton from a hypothesis.
 - `draft_manuscript`: create a Writing Studio outline from an approved source card.
+- `run_research_pipeline`: advance a Paper or Debate Card through Reader/Debate/Strategy/Experiment handoffs into a Leader review packet. It stops before Library storage; Leader approval is still required.
 
 These actions do not call an LLM yet. They create traceable workflow state so
 Ollama or remote model deputies can be wired into the same action boundary later.

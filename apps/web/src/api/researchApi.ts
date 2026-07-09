@@ -13,7 +13,7 @@ import type {
 
 export type ResearchDataMode = "demo" | "api";
 export type LeaderDecisionValue = "approved" | "rejected" | "needs_revision" | "stored_in_library";
-export type AgentActionValue = "run_reader" | "run_debate" | "design_experiment" | "draft_manuscript";
+export type AgentActionValue = "run_reader" | "run_debate" | "design_experiment" | "draft_manuscript" | "run_research_pipeline";
 
 export interface ResearchLabState {
   projects: ResearchProjectData[];

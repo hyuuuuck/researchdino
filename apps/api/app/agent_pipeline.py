@@ -26,6 +26,8 @@ def card_lab_id(card: dict[str, Any]) -> str | None:
 
 
 def run_agent_action(card_id: str, action: str) -> dict[str, Any]:
+    if action == "run_research_pipeline":
+        return run_research_pipeline(card_id)
     if action == "run_reader":
         return run_reader(card_id)
     if action == "run_debate":
@@ -35,6 +37,51 @@ def run_agent_action(card_id: str, action: str) -> dict[str, Any]:
     if action == "draft_manuscript":
         return draft_manuscript(card_id)
     raise PipelineError(f"Unsupported agent action: {action}")
+
+
+def run_research_pipeline(card_id: str) -> dict[str, Any]:
+    """Advance a source paper or active debate to a Leader review packet.
+
+    This intentionally stops before Library storage. ResearchDino's human/PI
+    gate remains the only path that can promote a conclusion into Library.
+    """
+    source_card = require_card(card_id)
+    updated_ids: list[str] = []
+    created_ids: list[str] = []
+
+    if source_card["type"] == "paper":
+        reader_result = run_reader(card_id)
+        updated_ids.extend(reader_result["updatedCardIds"])
+        created_ids.extend(reader_result["createdCardIds"])
+        debate_id = reader_result["createdCardIds"][0]
+    elif source_card["type"] in {"claim_debate", "paper_review", "contradiction_review", "hypothesis_debate"}:
+        debate_id = card_id
+    else:
+        raise PipelineError("Research pipeline starts from a paper or debate card.")
+
+    debate_result = run_debate(debate_id)
+    updated_ids.extend(debate_result["updatedCardIds"])
+    created_ids.extend(debate_result["createdCardIds"])
+
+    debate_card = require_card(debate_id)
+    write_log(
+        agent="coordinator",
+        room="coordinator",
+        level="approval",
+        title="Research pipeline reached Leader review",
+        message="Reader extraction, structured debate, strategy handoff, and experiment handoff are complete. Library storage still requires Leader approval.",
+        related_card_id=debate_id,
+        project_id=card_project_id(debate_card),
+        lab_id=card_lab_id(debate_card),
+    )
+
+    return {
+        "action": "run_research_pipeline",
+        "sourceCardId": card_id,
+        "updatedCardIds": unique_ids(updated_ids),
+        "createdCardIds": unique_ids(created_ids),
+        "message": "Research pipeline advanced to Leader review. Approve from Reports to store it in Library.",
+    }
 
 
 def run_reader(card_id: str) -> dict[str, Any]:
@@ -633,3 +680,7 @@ def write_log(
             "relatedCardId": related_card_id,
         },
     )
+
+
+def unique_ids(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(values))
