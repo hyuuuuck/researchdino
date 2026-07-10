@@ -13,9 +13,24 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 The API initializes a local SQLite database at `apps/api/data/researchdino.sqlite3`
 and seeds demo workflow data when the database is empty.
 
-PyMuPDF is required for real PDF text extraction. Without it, folder scanning
-still registers PDFs, hashes files, and creates Paper Cards, but reports text
-extraction as unavailable.
+PyMuPDF is required for real PDF text extraction. A successful scan stores PDF
+metadata, DOI candidates, full text, page-level text offsets, and a Reader queue
+card. Rescanning the same file in the same project/lab updates the existing
+record instead of duplicating it; another project/lab receives an isolated card.
+
+Paper ingest endpoints:
+
+- `POST /ingest/folder`: register a local folder for one project/lab.
+- `POST /ingest/scan`: scan, parse, deduplicate, and queue local PDFs.
+- `GET /papers`: list ingested PDF records.
+- `GET /papers/{paper_id}`: inspect one PDF record and its extracted metadata.
+- `GET /papers/{paper_id}/text`: inspect full parsed text and page offsets.
+
+Run the ingest regression tests from the repository root:
+
+```bash
+py -3.11 -m unittest discover -s apps/api/tests -v
+```
 
 ## Connect The Web App
 

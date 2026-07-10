@@ -50,7 +50,7 @@ export function IngestPanel({ dataMode, onScanComplete }: IngestPanelProps) {
       setLastResult(result);
       setMessage(
         result.parserAvailable
-          ? `Scanned ${result.pdfCount} PDFs and created ${result.paperCardCount} paper cards.`
+          ? `Scanned ${result.pdfCount} PDFs: ${result.newPaperCount} new, ${result.duplicatePaperCount} existing, ${result.parsedPaperCount} parsed, ${result.readerQueueCount} queued for Reader.`
           : `Scanned ${result.pdfCount} PDFs. Text extraction awaits PyMuPDF.`,
       );
       await onScanComplete();
@@ -90,8 +90,12 @@ export function IngestPanel({ dataMode, onScanComplete }: IngestPanelProps) {
             <dd>{lastResult.pdfCount}</dd>
           </div>
           <div>
-            <dt>Paper Cards</dt>
-            <dd>{lastResult.paperCardCount}</dd>
+            <dt>New / Existing</dt>
+            <dd>{lastResult.newPaperCount} / {lastResult.duplicatePaperCount}</dd>
+          </div>
+          <div>
+            <dt>Parsed / Reader Queue</dt>
+            <dd>{lastResult.parsedPaperCount} / {lastResult.readerQueueCount}</dd>
           </div>
           <div>
             <dt>Error Cards</dt>

@@ -718,7 +718,10 @@ export function ResearchDinoOS() {
       const result = await scanIngestFolder();
       setIngestResult(result);
       await refreshState();
-      setActionMessage(`Scanned ${result.pdfCount} PDFs and created ${result.paperCardCount} paper cards.`);
+      setActionMessage(
+        `Scanned ${result.pdfCount} PDFs: ${result.newPaperCount} new, ${result.duplicatePaperCount} existing, ` +
+        `${result.parsedPaperCount} parsed, ${result.readerQueueCount} queued for Reader.`,
+      );
       setScreen("reader");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -2381,7 +2384,11 @@ function SettingsScreen({
           {ingestResult && (
             <div className="rdos-ingest-result">
               <StatRow label="PDFs" value={ingestResult.pdfCount} />
-              <StatRow label="Paper Cards" value={ingestResult.paperCardCount} />
+              <StatRow label="New" value={ingestResult.newPaperCount} />
+              <StatRow label="Existing" value={ingestResult.duplicatePaperCount} />
+              <StatRow label="Parsed" value={ingestResult.parsedPaperCount} />
+              <StatRow label="Reader Queue" value={ingestResult.readerQueueCount} />
+              <StatRow label="Errors" value={ingestResult.errorCardCount} />
               <StatRow label="Parser" value={ingestResult.parserAvailable ? "PyMuPDF" : "Missing"} />
             </div>
           )}

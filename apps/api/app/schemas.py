@@ -394,14 +394,41 @@ class PaperFileRecord(BaseModel):
     labId: str | None = None
     path: str
     fileName: str
+    title: str = ""
+    authors: list[str] = Field(default_factory=list)
+    doi: str | None = None
+    subject: str | None = None
+    keywords: list[str] = Field(default_factory=list)
+    metadataSource: Literal["embedded_pdf", "filename"] = "filename"
+    pdfMetadata: dict[str, str] = Field(default_factory=dict)
     sizeBytes: int
     sha256: str | None = None
     scanStatus: Literal["scanned", "error"]
     textExtractionStatus: Literal["not_attempted", "parsed", "parser_unavailable", "failed"]
     pageCount: int | None = None
+    textLength: int = 0
     textPreview: str | None = None
     errorMessage: str | None = None
     scannedAt: str
+
+
+class PaperTextPage(BaseModel):
+    pageNumber: int
+    text: str
+    charStart: int
+    charEnd: int
+
+
+class PaperTextRecord(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    paperFileId: str
+    text: str
+    pages: list[PaperTextPage] = Field(default_factory=list)
+    pageCount: int
+    textLength: int
+    extractedAt: str
 
 
 class IngestScanResult(BaseModel):
@@ -409,5 +436,9 @@ class IngestScanResult(BaseModel):
     pdfCount: int
     paperCardCount: int
     errorCardCount: int
+    newPaperCount: int = 0
+    duplicatePaperCount: int = 0
+    parsedPaperCount: int = 0
+    readerQueueCount: int = 0
     parserAvailable: bool
     errors: list[str]

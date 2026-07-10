@@ -25,7 +25,7 @@ finishes, changes scope, or reveals a blocker.
 - `[x]` M1: Laboratory UI Foundation
 - `[x]` M2: Workflow State Model
 - `[x]` M3: Local Backend MVP
-- `[~]` M4: Local PDF Ingest MVP
+- `[x]` M4: Local PDF Ingest MVP
 - `[~]` M5: Reader Agent Pipeline
 - `[~]` M6: Debate + Leader Gate
 - `[ ]` M7: Library + Retrieval
@@ -174,7 +174,7 @@ Verification:
 
 ## M4: Local PDF Ingest MVP
 
-Status: In progress. Blocked only on PyMuPDF installation for text extraction.
+Status: Done and verified with a real two-page PDF fixture.
 
 Goal: read user-owned local PDFs and create real Paper Cards.
 
@@ -182,10 +182,15 @@ Goal: read user-owned local PDFs and create real Paper Cards.
 - `[x]` Scan PDF files without deleting or moving user files.
 - `[x]` Store file path, file name, size, hash, and scan status.
 - `[x]` Create Paper Cards in Collection Dock.
-- `[!]` Extract text with PyMuPDF.
+- `[x]` Extract text with PyMuPDF.
 - `[x]` Capture extraction errors as Error Cards.
 - `[x]` Keep raw PDFs local.
 - `[x]` Add clear UI distinction between scanned files and parsed papers.
+- `[x]` Extract embedded title, author, subject, keywords, and DOI metadata.
+- `[x]` Preserve page-level text and character offsets for evidence traceability.
+- `[x]` Prevent duplicate cards when the same PDF is rescanned in the same project/lab.
+- `[x]` Keep the same PDF isolated when it is assigned to another project/lab.
+- `[x]` Queue successfully parsed papers directly for Reader.
 
 Verification:
 
@@ -193,13 +198,15 @@ Verification:
 - `python -m compileall app`: passed after ingest endpoint additions.
 - API scan smoke test passed with a temporary local PDF file.
 - Scan test verified folder registration, PDF count, paper card creation, and `/papers` persistence.
-- Current Python environment does not have `fitz` / PyMuPDF installed, so text extraction reports `parserAvailable=false`.
+- PyMuPDF 1.28.0 is installed in the system Python 3.11 environment used for API verification.
+- Generated two-page PDF smoke test verified embedded title, two authors, DOI, page count, text length, and parsed text persistence.
+- First scan reported `1 new / 1 parsed / 1 Reader queued`; repeat scan reported `0 new / 1 existing`.
+- Reader smoke test verified evidence locators on pages `1, 1, 2`.
+- Parallel-lab scan verified that the same PDF receives a distinct scoped paper ID in another lab.
+- `py -3.11 -m unittest discover -s apps\api\tests -v`: 2 ingest/pipeline tests passed.
+- SQLite connections now close deterministically after every storage operation, including failed scans and test cleanup.
 - `npm.cmd run build`: passed after PDF Ingest panel integration.
 - Chrome headless desktop screenshot inspected at `1500x1200` after PDF Ingest panel pass.
-
-Open blocker:
-
-- `[!]` Install or approve adding PyMuPDF before marking text extraction complete.
 
 ## M5: Reader Agent Pipeline
 
@@ -211,7 +218,8 @@ Goal: convert a parsed paper into structured, traceable reading outputs.
 - `[~]` Extract abstract, methods, results, limitations.
 - `[x]` Extract candidate claims through the local Reader action scaffold.
 - `[x]` Extract evidence candidates through the local Reader action scaffold.
-- `[ ]` Mark unsupported or weakly supported claims as provisional.
+- `[x]` Mark metadata-only claims as unsupported and requiring review.
+- `[x]` Link extracted evidence back to PDF page and character offsets.
 - `[x]` Move Paper Cards from Reading Bench to Debate Room when ready.
 - `[x]` Log Reader Agent runs.
 - `[x]` Confirm first LLM provider: local Ollama.
@@ -295,9 +303,9 @@ Goal: enrich local paper records using official and license-compliant sources.
 
 ## Next Recommended Work
 
-Finish M4:
+Continue M5 and M9:
 
-1. Add PyMuPDF to the active Python environment or approve package installation.
-2. Verify real PDF text extraction and `paper_texts` persistence.
-3. Re-run a scan against a real user-owned paper folder.
-4. Then start M5 Reader Agent Pipeline.
+1. Wire the registered Ollama deputy model into the Reader action boundary.
+2. Replace first-pass sentence heuristics with structured Reader JSON outputs for abstract, methods, results, limitations, claims, and evidence.
+3. Add DOI metadata enrichment through Crossref/OpenAlex while keeping publisher full text license-gated.
+4. Run a user-selected real paper folder through ingest before broad batch processing.

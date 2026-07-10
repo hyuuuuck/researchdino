@@ -28,6 +28,7 @@ from .schemas import (
     LeaderDecisionRequest,
     LibraryEntry,
     PaperFileRecord,
+    PaperTextRecord,
     ResearchClaim,
     ResearchProject,
     ResearchProjectCreateRequest,
@@ -374,6 +375,22 @@ def papers() -> list[PaperFileRecord]:
     return [PaperFileRecord(**paper) for paper in list_json("paper_files")]
 
 
+@app.get("/papers/{paper_id}", response_model=PaperFileRecord)
+def paper(paper_id: str) -> PaperFileRecord:
+    record = get_json("paper_files", paper_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Paper file not found")
+    return PaperFileRecord(**record)
+
+
+@app.get("/papers/{paper_id}/text", response_model=PaperTextRecord)
+def paper_text(paper_id: str) -> PaperTextRecord:
+    record = get_json("paper_texts", paper_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Parsed paper text not found")
+    return PaperTextRecord(**record)
+
+
 @app.post("/ingest/scan", response_model=IngestScanResult)
 def scan_ingest_folder() -> IngestScanResult:
     record = get_json("ingest_folders", "active")
@@ -386,16 +403,74 @@ def scan_ingest_folder() -> IngestScanResult:
 
     project_id = record.get("projectId", "project-autophagy")
     lab_id = record.get("labId")
-    paper_records, card_records, text_records = scan_pdf_folder(folder, project_id=project_id)
+    existing_papers = list_json("paper_files")
+    paper_records, card_records, text_records = scan_pdf_folder(
+        folder,
+        project_id=project_id,
+        lab_id=lab_id,
+    )
 
-    for paper in paper_records:
-        paper["labId"] = lab_id
-        put_json("paper_files", paper["id"], paper)
+    existing_by_scope = {
+        (paper.get("sha256"), paper.get("projectId"), paper.get("labId")): paper
+        for paper in existing_papers
+        if paper.get("sha256")
+    }
+    existing_by_id = {paper["id"]: paper for paper in existing_papers}
+    id_remap: dict[str, str] = {}
+    new_paper_count = 0
+    duplicate_paper_count = 0
+
+    for paper_record in paper_records:
+        generated_id = paper_record["id"]
+        existing = existing_by_id.get(generated_id) or existing_by_scope.get(
+            (
+                paper_record.get("sha256"),
+                paper_record.get("projectId"),
+                paper_record.get("labId"),
+            )
+        )
+        if existing is None:
+            new_paper_count += 1
+            target_id = generated_id
+        else:
+            duplicate_paper_count += 1
+            target_id = existing["id"]
+            paper_record = {**existing, **paper_record, "id": target_id}
+        id_remap[generated_id] = target_id
+        put_json("paper_files", target_id, paper_record)
+
+    for text_record in text_records:
+        target_id = id_remap.get(text_record["id"], text_record["id"])
+        text_record["id"] = target_id
+        text_record["paperFileId"] = target_id
+        put_json("paper_texts", target_id, text_record)
+
+    normalized_cards: list[dict] = []
     for card in card_records:
-        card["labId"] = lab_id
-        put_json("cards", card["id"], card)
-    for text in text_records:
-        put_json("paper_texts", text["id"], text)
+        generated_paper_id = card.get("sourcePaperId")
+        target_paper_id = id_remap.get(generated_paper_id, generated_paper_id)
+        target_card_id = f"card-{target_paper_id}"
+        card["id"] = target_card_id
+        card["sourcePaperId"] = target_paper_id
+        existing_card = get_json("cards", target_card_id)
+        if existing_card is not None:
+            preserve_workflow = existing_card.get("status") not in {"queued", "failed"}
+            card = {
+                **card,
+                **(existing_card if preserve_workflow else {}),
+                "id": target_card_id,
+                "sourcePaperId": target_paper_id,
+                "title": card["title"],
+                "summary": existing_card.get("summary") if preserve_workflow else card["summary"],
+                "details": {
+                    **existing_card.get("details", {}),
+                    **card.get("details", {}),
+                },
+            }
+        put_json("cards", target_card_id, card)
+        normalized_cards.append(card)
+
+    card_records = normalized_cards
 
     error_messages = [
         f"{paper['fileName']}: {paper['errorMessage']}"
@@ -404,6 +479,16 @@ def scan_ingest_folder() -> IngestScanResult:
     ]
     paper_card_count = sum(1 for card in card_records if card["type"] == "paper")
     error_card_count = sum(1 for card in card_records if card["type"] == "error")
+    parsed_paper_count = sum(
+        1 for paper_record in paper_records
+        if paper_record.get("textExtractionStatus") == "parsed"
+    )
+    reader_queue_count = sum(
+        1 for card in card_records
+        if card.get("type") == "paper"
+        and card.get("currentRoom") == "reading"
+        and card.get("status") == "queued"
+    )
 
     log_id = f"log-{uuid4().hex[:12]}"
     put_json(
@@ -418,7 +503,11 @@ def scan_ingest_folder() -> IngestScanResult:
             "room": "collection",
             "level": "warning" if error_messages else "info",
             "title": "PDF folder scanned",
-            "message": f"{len(paper_records)} PDF files scanned from {folder}.",
+            "message": (
+                f"{len(paper_records)} PDFs scanned: {new_paper_count} new, "
+                f"{duplicate_paper_count} existing, {parsed_paper_count} parsed, "
+                f"{reader_queue_count} queued for Reader."
+            ),
             "relatedCardId": card_records[0]["id"] if card_records else None,
         },
     )
@@ -428,6 +517,10 @@ def scan_ingest_folder() -> IngestScanResult:
         pdfCount=len(paper_records),
         paperCardCount=paper_card_count,
         errorCardCount=error_card_count,
+        newPaperCount=new_paper_count,
+        duplicatePaperCount=duplicate_paper_count,
+        parsedPaperCount=parsed_paper_count,
+        readerQueueCount=reader_queue_count,
         parserAvailable=is_pymupdf_available(),
         errors=error_messages,
     )

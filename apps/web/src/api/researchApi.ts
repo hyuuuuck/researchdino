@@ -43,6 +43,10 @@ export interface IngestScanResult {
   pdfCount: number;
   paperCardCount: number;
   errorCardCount: number;
+  newPaperCount: number;
+  duplicatePaperCount: number;
+  parsedPaperCount: number;
+  readerQueueCount: number;
   parserAvailable: boolean;
   errors: string[];
 }

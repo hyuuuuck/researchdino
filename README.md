@@ -51,8 +51,11 @@ Milestones and active checklists are tracked in
 
 ## Repo Status
 
-This repo currently contains the project seed, concept documents, and the first
-web UI scaffold for the Laboratory Map prototype.
+This repo now contains the Laboratory Map web app, a local FastAPI/SQLite
+backend, real local-PDF parsing with project/lab scoping, structured research
+ledger records, and deterministic Reader/Debate/Strategy/Experiment workflow
+actions. Ollama-backed model execution and external metadata enrichment remain
+in progress.
 
 ## Run The Web Prototype
 
@@ -62,5 +65,6 @@ npm install
 npm run dev
 ```
 
-The current UI uses explicit demo workflow state. It does not yet parse real
-PDFs or call external APIs.
+Without `VITE_API_BASE_URL` the UI stays in explicit demo mode. In API mode it
+can register and parse local PDF folders; external publisher/API ingestion is
+still license- and connector-gated.

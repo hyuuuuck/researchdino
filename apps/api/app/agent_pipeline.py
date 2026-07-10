@@ -102,7 +102,13 @@ def run_reader(card_id: str) -> dict[str, Any]:
     claim_text = infer_claim_text(card, text)
     evidence_items = infer_evidence_items(card, text)
     limitations = infer_limitations(text)
-    claim_id, evidence_record_ids = persist_reader_records(card, paper_id, claim_text, evidence_items)
+    claim_id, evidence_record_ids = persist_reader_records(
+        card,
+        paper_id,
+        claim_text,
+        evidence_items,
+        text_record,
+    )
 
     card["currentRoom"] = "reading"
     card["status"] = "running"
@@ -656,10 +662,12 @@ def persist_reader_records(
     paper_id: str,
     claim_text: str,
     evidence_items: list[str],
+    text_record: dict[str, Any] | None = None,
 ) -> tuple[str, list[str]]:
     now = current_iso_time()
     claim_id = f"claim-{paper_id}"
     evidence_ids: list[str] = []
+    source_backed = bool(text_record and str(text_record.get("text", "")).strip())
 
     for index, excerpt in enumerate(evidence_items, start=1):
         evidence_id = f"evidence-{paper_id}-{index}"
@@ -675,14 +683,14 @@ def persist_reader_records(
                 "paperId": paper_id,
                 "sourceCardId": card["id"],
                 "excerpt": excerpt,
-                "interpretation": "Reader extracted this as provisional support for debate.",
-                "strength": "moderate" if index == 1 else "weak",
-                "confidence": max(45, 78 - index * 8),
-                "locator": {
-                    "paperId": paper_id,
-                    "sectionId": "reader_pass",
-                    "paragraphIndex": index,
-                },
+                "interpretation": (
+                    "Reader extracted this as provisional source-text support for debate."
+                    if source_backed
+                    else "Metadata-only evidence; full-text support has not been verified."
+                ),
+                "strength": "moderate" if source_backed and index == 1 else "weak",
+                "confidence": max(45, 78 - index * 8) if source_backed else 30,
+                "locator": locate_excerpt(text_record, paper_id, excerpt, index),
                 "createdAt": now,
             },
         )
@@ -698,17 +706,59 @@ def persist_reader_records(
             "sourceCardId": card["id"],
             "text": claim_text,
             "type": "finding",
-            "status": "running",
+            "status": "running" if source_backed else "queued",
             "approvalStatus": "draft",
-            "supportLevel": "moderate" if evidence_ids else "unsupported",
+            "supportLevel": "moderate" if source_backed and evidence_ids else "unsupported",
             "evidenceIds": evidence_ids,
             "debateSessionId": None,
-            "requiresUserReview": False,
+            "requiresUserReview": not source_backed,
             "createdAt": now,
             "updatedAt": now,
         },
     )
     return claim_id, evidence_ids
+
+
+def locate_excerpt(
+    text_record: dict[str, Any] | None,
+    paper_id: str,
+    excerpt: str,
+    paragraph_index: int,
+) -> dict[str, str | int | None]:
+    fallback: dict[str, str | int | None] = {
+        "paperId": paper_id,
+        "pageNumber": None,
+        "sectionId": "reader_pass",
+        "paragraphIndex": paragraph_index,
+        "charStart": None,
+        "charEnd": None,
+    }
+    if not text_record:
+        return fallback
+
+    excerpt_key = excerpt.strip()
+    for page in text_record.get("pages", []):
+        page_text = str(page.get("text", ""))
+        local_start = page_text.find(excerpt_key)
+        local_end = local_start + len(excerpt_key)
+        if local_start < 0:
+            tokens = excerpt_key.split()
+            search_tokens = tokens if len(tokens) <= 40 else tokens[:40]
+            whitespace_tolerant = r"\s+".join(re.escape(token) for token in search_tokens)
+            match = re.search(whitespace_tolerant, page_text)
+            if match:
+                local_start = match.start()
+                local_end = match.end()
+        if local_start < 0:
+            continue
+        page_start = int(page.get("charStart", 0))
+        return {
+            **fallback,
+            "pageNumber": int(page.get("pageNumber", 0)) or None,
+            "charStart": page_start + local_start,
+            "charEnd": page_start + local_end,
+        }
+    return fallback
 
 
 def persist_debate_session(
