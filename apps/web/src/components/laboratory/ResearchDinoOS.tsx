@@ -12,6 +12,7 @@ import {
   submitLeaderDecision,
   updateWorkflowCard,
   type AgentActionValue,
+  type AgentRunRecord,
   type CreateResearchProjectInput,
   type CreateWorkflowCardInput,
   type DebateSessionRecord,
@@ -20,6 +21,7 @@ import {
   type HypothesisRecord,
   type IngestScanResult,
   type LeaderDecisionValue,
+  type ModelRuntimeStatus,
   type PatchLabInstanceInput,
   type ResearchClaimRecord,
   type ResearchDataMode,
@@ -169,16 +171,6 @@ type ControlSettings = {
 };
 
 const controlSettingsStorageKey = "researchdino-control-settings";
-
-const modelOptions = [
-  "claude-opus-4-8",
-  "claude-sonnet-5",
-  "claude-haiku-4-5",
-  "local-research-dino",
-  "llama3.1",
-  "mistral",
-  "manual-review",
-] as const;
 
 const sourceAccessMethodLabels: Record<SourceAccessMethod, string> = {
   api_key: "API key",
@@ -368,9 +360,9 @@ function defaultControlSettings(sourceConnectors: PaperSourceConnector[]): Contr
     autonomyMode: "assisted",
     autoApproveLowRisk: false,
     maxParallelTasks: 6,
-    localInference: true,
-    reasoningModel: "claude-sonnet-5",
-    readingModel: "local-research-dino",
+    localInference: false,
+    reasoningModel: "nemotron-3-super:cloud",
+    readingModel: "qwen3.5:cloud",
   };
 }
 
@@ -453,6 +445,8 @@ export function ResearchDinoOS() {
   const [rooms, setRooms] = useState<LaboratoryRoomData[]>(initialResearchLabState.rooms);
   const [cards, setCards] = useState<WorkflowCardData[]>(initialResearchLabState.cards);
   const [logs, setLogs] = useState<AgentLogEntry[]>(initialResearchLabState.logs);
+  const [agentRuns, setAgentRuns] = useState<AgentRunRecord[]>(initialResearchLabState.agentRuns);
+  const [modelRuntime, setModelRuntime] = useState<ModelRuntimeStatus>(initialResearchLabState.modelRuntime);
   const [claims, setClaims] = useState<ResearchClaimRecord[]>(initialResearchLabState.claims);
   const [evidence, setEvidence] = useState<EvidenceRecord[]>(initialResearchLabState.evidence);
   const [debateSessions, setDebateSessions] = useState<DebateSessionRecord[]>(initialResearchLabState.debateSessions);
@@ -476,6 +470,8 @@ export function ResearchDinoOS() {
     setRooms(nextState.rooms);
     setCards(nextState.cards);
     setLogs(nextState.logs);
+    setAgentRuns(nextState.agentRuns);
+    setModelRuntime(nextState.modelRuntime);
     setClaims(nextState.claims);
     setEvidence(nextState.evidence);
     setDebateSessions(nextState.debateSessions);
@@ -526,6 +522,10 @@ export function ResearchDinoOS() {
   const projectLogCount = useMemo(
     () => logs.filter((log) => belongsToProject(log, activeProject?.id ?? defaultProjectId) && belongsToLabInstance(log, activeLab)).length,
     [activeLab?.id, activeProject?.id, logs],
+  );
+  const projectAgentRuns = useMemo(
+    () => agentRuns.filter((run) => belongsToProject(run, activeProject?.id ?? defaultProjectId) && belongsToLabInstance(run, activeLab)),
+    [activeLab?.id, activeProject?.id, agentRuns],
   );
   const activePaper = firstCard(projectCards, (card) => card.type === "paper" && card.status !== "failed");
   const activeDebate =
@@ -1010,7 +1010,7 @@ export function ResearchDinoOS() {
               />
             )}
             {screen === "report" && <ManuscriptScreen card={firstCard(projectCards, (card) => card.type === "manuscript")} project={activeProject} />}
-            {screen === "agents" && <AgentsScreen rooms={rooms} cards={projectCards} />}
+            {screen === "agents" && <AgentsScreen rooms={rooms} cards={projectCards} runs={projectAgentRuns} />}
             {screen === "library" && <LibraryScreen project={activeProject} cards={libraryCards} allCards={projectCards} />}
             {screen === "reports" && (
               <ReportsScreen
@@ -1050,6 +1050,7 @@ export function ResearchDinoOS() {
             {screen === "settings" && (
               <SettingsScreen
                 dataMode={dataMode}
+                modelRuntime={modelRuntime}
                 sourceConnectors={rooms.find((room) => room.id === "collection")?.sourceConnectors ?? []}
                 ingestPath={ingestPath}
                 ingestResult={ingestResult}
@@ -1627,7 +1628,7 @@ function ManuscriptScreen({ card, project }: { card?: WorkflowCardData; project?
   );
 }
 
-function AgentsScreen({ rooms, cards }: { rooms: LaboratoryRoomData[]; cards: WorkflowCardData[] }) {
+function AgentsScreen({ rooms, cards, runs }: { rooms: LaboratoryRoomData[]; cards: WorkflowCardData[]; runs: AgentRunRecord[] }) {
   const [selectedRoomId, setSelectedRoomId] = useState<RoomId>("leader");
   const agents = rooms.map((room) => ({
     roomId: room.id,
@@ -1641,6 +1642,9 @@ function AgentsScreen({ rooms, cards }: { rooms: LaboratoryRoomData[]; cards: Wo
   }));
   const selectedAgent = agents.find((agent) => agent.roomId === selectedRoomId) ?? agents[0];
   const profile = selectedAgent ? agentProfiles[selectedAgent.agent] : undefined;
+  const selectedRuns = selectedAgent
+    ? runs.filter((run) => run.agent === selectedAgent.agent || selectedAgent.assignments.some((assignment) => assignment.deputy === run.agent))
+    : [];
 
   return (
     <section>
@@ -1661,7 +1665,7 @@ function AgentsScreen({ rooms, cards }: { rooms: LaboratoryRoomData[]; cards: Wo
               </div>
               <em className={agent.status.includes("debating") ? "is-live" : ""}>{agent.status}</em>
               <p>Current Task: {agent.room}</p>
-              <footer><span>{agent.room}</span><b>{agent.activeCards.length} Cards</b></footer>
+              <footer><span>{agent.room}</span><b>{runs.filter((run) => run.agent === agent.agent).length} Model Runs</b></footer>
             </button>
           ))}
         </div>
@@ -1681,7 +1685,7 @@ function AgentsScreen({ rooms, cards }: { rooms: LaboratoryRoomData[]; cards: Wo
               <div><span>Room</span><b>{selectedAgent.room}</b></div>
               <div><span>Status</span><b>{selectedAgent.status}</b></div>
               <div><span>Cards</span><b>{selectedAgent.activeCards.length}</b></div>
-              <div><span>Deputies</span><b>{selectedAgent.assignments.length}</b></div>
+              <div><span>Model Runs</span><b>{selectedRuns.length}</b></div>
             </div>
 
             <section className="rdos-agent-section">
@@ -1740,6 +1744,23 @@ function AgentsScreen({ rooms, cards }: { rooms: LaboratoryRoomData[]; cards: Wo
                 </div>
               ) : (
                 <p>No active cards in this room for the selected project.</p>
+              )}
+            </section>
+
+            <section className="rdos-agent-section">
+              <h4>Recent Model Runs</h4>
+              {selectedRuns.length > 0 ? (
+                <div className="rdos-agent-model-list">
+                  {selectedRuns.slice(0, 6).map((run) => (
+                    <div className="rdos-agent-model" key={run.id}>
+                      <b>{run.phase.replace(/_/g, " ")}</b>
+                      <span>{run.model} / {run.status}</span>
+                      <p>{run.errorMessage ?? run.inputSummary}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>No Ollama model run has been recorded for this project/lab yet.</p>
               )}
             </section>
           </aside>
@@ -2217,6 +2238,7 @@ function TasksScreen({
 
 function SettingsScreen({
   dataMode,
+  modelRuntime,
   sourceConnectors,
   ingestPath,
   ingestResult,
@@ -2225,6 +2247,7 @@ function SettingsScreen({
   onSubmit,
 }: {
   dataMode: ResearchDataMode;
+  modelRuntime: ModelRuntimeStatus;
   sourceConnectors: PaperSourceConnector[];
   ingestPath: string;
   ingestResult?: IngestScanResult;
@@ -2353,24 +2376,26 @@ function SettingsScreen({
           </label>
         </article>
         <article className="rdos-panel">
-          <span className="rdos-eyebrow">Models</span>
-          <label className="rdos-model-select">
-            Reasoning & debate
-            <select value={settings.reasoningModel} onChange={(event) => updateSettings({ reasoningModel: event.target.value })}>
-              {modelOptions.map((model) => <option key={model} value={model}>{model}</option>)}
-            </select>
-          </label>
-          <label className="rdos-model-select">
-            Read & summarize
-            <select value={settings.readingModel} onChange={(event) => updateSettings({ readingModel: event.target.value })}>
-              {modelOptions.map((model) => <option key={model} value={model}>{model}</option>)}
-            </select>
-          </label>
-          <Toggle
-            label="Local inference"
-            active={settings.localInference}
-            onToggle={() => updateSettings({ localInference: !settings.localInference })}
-          />
+          <span className="rdos-eyebrow">Ollama Cloud Runtime</span>
+          <div className="rdos-runtime-status">
+            <StatRow label="Connection" value={modelRuntime.configured ? "Models registered" : modelRuntime.reachable ? "Models missing" : "Offline"} />
+            <StatRow label="Endpoint" value={modelRuntime.baseUrl} />
+            <StatRow label="Authentication" value={modelRuntime.authMode === "ollama_signin" ? "Ollama sign-in" : modelRuntime.apiKeyConfigured ? "API key set" : "API key missing"} />
+            <StatRow label="Runtime" value={modelRuntime.mode} />
+          </div>
+          <div className="rdos-agent-model-list rdos-runtime-models">
+            {Object.entries(modelRuntime.roleModels).map(([role, model]) => (
+              <div className="rdos-agent-model" key={role}>
+                <b>{role}</b>
+                <span>{model}</span>
+              </div>
+            ))}
+          </div>
+          {modelRuntime.missingModels.length > 0 && (
+            <p className="rdos-runtime-warning">Pull required: {modelRuntime.missingModels.join(", ")}</p>
+          )}
+          {modelRuntime.error && <p className="rdos-runtime-warning">{modelRuntime.error}</p>}
+          <p className="rdos-runtime-note">Inference usage and quota are checked on each AgentRun. A registered model can still be rejected by the Ollama account limit.</p>
         </article>
         <article className="rdos-panel">
           <span className="rdos-eyebrow">Local PDF Ingest</span>

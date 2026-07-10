@@ -210,7 +210,7 @@ Verification:
 
 ## M5: Reader Agent Pipeline
 
-Status: In progress. Deterministic local pipeline skeleton is implemented; real LLM/Ollama reading is not wired yet.
+Status: In progress. Ollama Cloud Reader runtime is implemented and mock-verified; Cloud models are registered, but live inference is blocked by the account weekly usage limit.
 
 Goal: convert a parsed paper into structured, traceable reading outputs.
 
@@ -222,22 +222,28 @@ Goal: convert a parsed paper into structured, traceable reading outputs.
 - `[x]` Link extracted evidence back to PDF page and character offsets.
 - `[x]` Move Paper Cards from Reading Bench to Debate Room when ready.
 - `[x]` Log Reader Agent runs.
-- `[x]` Confirm first LLM provider: local Ollama.
-- `[x]` Assign the local Ollama model reference to current deputies across Search, Reader, Critic, Librarian, Leader, Coordinator, Strategist, Experiment, and Writer rooms.
+- `[x]` Confirm first LLM provider: Ollama Cloud through the signed-in local Ollama proxy.
+- `[x]` Assign Ollama Cloud deputies across Search, Reader, Critic, Librarian, Leader, Coordinator, Strategist, Experiment, and Writer rooms.
+- `[x]` Replace placeholder model references with role-specific Ollama Cloud model tags.
+- `[x]` Call the Reader deputy through Ollama `/api/chat` and validate its JSON response.
+- `[x]` Persist every model invocation as `AgentRun` and validated output as `AgentMessage`.
+- `[x]` Fail visibly when Ollama is unavailable instead of silently generating template research output.
 
 Verification:
 
 - `POST /agent-actions` with `run_reader` creates a Debate Room claim card from a Paper Card.
 - `npm.cmd run build` and `python -m compileall .\apps\api\app` passed after agent action scaffold additions.
 - Temporary SQLite smoke test passed for `run_reader`.
+- Mock Ollama test verified structured Reader output plus `AgentRun` / `AgentMessage` persistence.
+- Live Ollama proxy call reached `gpt-oss:20b-cloud` authentication and was rejected with HTTP 429 because the account weekly usage limit is exhausted.
 
 Open decisions:
 
-- `[!]` Register or pull the actual Ollama model locally; `ollama list` currently returned no installed model rows in this environment.
+- `[!]` Wait for the Ollama weekly allowance reset, upgrade the plan, or add usage before a live research run. All four required Cloud model tags are registered locally.
 
 ## M6: Debate + Leader Gate
 
-Status: In progress. Debate handoff skeleton is implemented; real multi-agent model calls are not wired yet.
+Status: In progress. Real Ollama deputy fan-out/fan-in is implemented and mock-verified; live Cloud execution is blocked by the account weekly usage limit.
 
 Goal: review Reader outputs through agent discussion and human approval.
 
@@ -249,12 +255,17 @@ Goal: review Reader outputs through agent discussion and human approval.
 - `[x]` Send review items to Leader Office through `run_debate`.
 - `[x]` Store Leader decisions with reason and target object.
 - `[x]` Prevent unapproved outputs from entering Library.
+- `[x]` Run Critic and Librarian deputies in parallel over Reader evidence.
+- `[x]` Pass round-one outputs to Strategist and Experiment deputies in parallel.
+- `[x]` Fan all deputy outputs into Coordinator synthesis and Leader deputy pre-review.
+- `[x]` Keep the human Leader as the only final approval and Library storage authority.
 
 Verification:
 
 - `POST /agent-actions` with `run_debate` routes the selected Debate Card to Leader Office and creates Strategy / Experiment follow-up cards.
 - Leader Review still controls Library storage through `POST /leader-decisions`.
 - Temporary SQLite smoke test passed for `run_reader` -> `run_debate`.
+- Mock orchestration test verified six model calls, cross-agent context handoff, completion records, and messages.
 
 ## M7: Library + Retrieval
 
@@ -305,7 +316,7 @@ Goal: enrich local paper records using official and license-compliant sources.
 
 Continue M5 and M9:
 
-1. Wire the registered Ollama deputy model into the Reader action boundary.
-2. Replace first-pass sentence heuristics with structured Reader JSON outputs for abstract, methods, results, limitations, claims, and evidence.
-3. Add DOI metadata enrichment through Crossref/OpenAlex while keeping publisher full text license-gated.
-4. Run a user-selected real paper folder through ingest before broad batch processing.
+1. Restore Ollama Cloud usage by allowance reset, plan upgrade, or added usage.
+2. Run one user-owned paper through the live Reader and six-deputy Debate path, then inspect every `AgentRun` and evidence trace.
+3. Tune role prompts and model choices from real scientific output quality and account usage.
+4. Add DOI metadata enrichment through Crossref/OpenAlex while keeping publisher full text license-gated.

@@ -5579,6 +5579,35 @@ button {
   padding: 9px 10px;
 }
 
+.rdos-runtime-status {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.rdos-runtime-models {
+  max-height: 270px;
+  margin-top: 14px;
+  overflow-y: auto;
+}
+
+.rdos-runtime-warning {
+  margin: 12px 0 0;
+  border-left: 3px solid #b56b00;
+  padding-left: 10px;
+  color: #734900;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.rdos-runtime-note {
+  margin: 12px 0 0;
+  color: #777;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .rdos-ingest-form input {
   width: 100%;
   border: 1px solid #e3e3e3;

@@ -1,5 +1,6 @@
 import { agentLogs, initialWorkflowCards, labInstances, laboratoryRooms, researchProjects } from "../data/demoResearchLab";
 import type {
+  AgentVariant,
   AgentLogEntry,
   CardType,
   LabInstanceData,
@@ -21,6 +22,9 @@ export interface ResearchLabState {
   rooms: LaboratoryRoomData[];
   cards: WorkflowCardData[];
   logs: AgentLogEntry[];
+  agentRuns: AgentRunRecord[];
+  agentMessages: AgentMessageRecord[];
+  modelRuntime: ModelRuntimeStatus;
   claims: ResearchClaimRecord[];
   evidence: EvidenceRecord[];
   debateSessions: DebateSessionRecord[];
@@ -57,6 +61,51 @@ export interface AgentActionResult {
   updatedCardIds: string[];
   createdCardIds: string[];
   message: string;
+}
+
+export interface AgentRunRecord {
+  id: string;
+  projectId: string;
+  labId?: string;
+  sourceCardId: string;
+  agent: AgentVariant;
+  phase: string;
+  provider: "ollama" | "claude" | "manual";
+  model: string;
+  status: "running" | "completed" | "failed";
+  inputSummary: string;
+  output: Record<string, unknown> | null;
+  metrics: Record<string, string | number | null>;
+  errorMessage: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface AgentMessageRecord {
+  id: string;
+  projectId: string;
+  labId?: string;
+  sourceCardId: string;
+  runId: string;
+  agent: AgentVariant;
+  room: RoomId;
+  phase: string;
+  content: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ModelRuntimeStatus {
+  mode: string;
+  provider: string;
+  baseUrl: string;
+  authMode: string;
+  apiKeyConfigured: boolean;
+  reachable: boolean;
+  configured: boolean;
+  roleModels: Record<string, string>;
+  availableModels: string[];
+  missingModels: string[];
+  error: string | null;
 }
 
 export interface ResearchClaimRecord {
@@ -191,6 +240,21 @@ export function getDemoResearchLabState(): ResearchLabState {
     labInstances,
     cards: initialWorkflowCards,
     logs: agentLogs,
+    agentRuns: [],
+    agentMessages: [],
+    modelRuntime: {
+      mode: "demo",
+      provider: "ollama_cloud",
+      baseUrl: "http://127.0.0.1:11434",
+      authMode: "ollama_signin",
+      apiKeyConfigured: false,
+      reachable: false,
+      configured: false,
+      roleModels: {},
+      availableModels: [],
+      missingModels: [],
+      error: null,
+    },
     claims: [],
     evidence: [],
     debateSessions: [],
@@ -210,7 +274,9 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`API ${path} failed with HTTP ${response.status}`);
+    const payload = await response.json().catch(() => undefined) as { detail?: string } | undefined;
+    const detail = payload?.detail?.trim();
+    throw new Error(detail || `API ${path} failed with HTTP ${response.status}`);
   }
 
   return response.json() as Promise<T>;
@@ -221,12 +287,15 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     return getDemoResearchLabState();
   }
 
-  const [projects, labInstances, rooms, cards, logs, claims, evidence, debateSessions, hypotheses, experimentPlans] = await Promise.all([
+  const [projects, labInstances, rooms, cards, logs, agentRuns, agentMessages, modelRuntime, claims, evidence, debateSessions, hypotheses, experimentPlans] = await Promise.all([
     fetchJson<ResearchProjectData[]>("/projects"),
     fetchJson<LabInstanceData[]>("/lab-instances"),
     fetchJson<LaboratoryRoomData[]>("/rooms"),
     fetchJson<WorkflowCardData[]>("/cards"),
     fetchJson<AgentLogEntry[]>("/agent-logs"),
+    fetchJson<AgentRunRecord[]>("/agent-runs"),
+    fetchJson<AgentMessageRecord[]>("/agent-messages"),
+    fetchJson<ModelRuntimeStatus>("/model-runtime"),
     fetchJson<ResearchClaimRecord[]>("/claims"),
     fetchJson<EvidenceRecord[]>("/evidence"),
     fetchJson<DebateSessionRecord[]>("/debate-sessions"),
@@ -240,6 +309,9 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     rooms,
     cards,
     logs,
+    agentRuns,
+    agentMessages,
+    modelRuntime,
     claims,
     evidence,
     debateSessions,

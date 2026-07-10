@@ -9,10 +9,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from .agent_pipeline import PipelineError, run_agent_action
 from .demo_data import DEMO_ROOMS
 from .ingest import is_pymupdf_available, scan_pdf_folder
+from .ollama_runtime import OllamaClient
 from .schemas import (
     AgentActionRequest,
     AgentActionResult,
     AgentLogEntry,
+    AgentMessageRecord,
+    AgentRunRecord,
     ApiMode,
     DebateSessionRecord,
     EvidenceRecord,
@@ -27,6 +30,7 @@ from .schemas import (
     LeaderDecisionRecord,
     LeaderDecisionRequest,
     LibraryEntry,
+    ModelRuntimeStatus,
     PaperFileRecord,
     PaperTextRecord,
     ResearchClaim,
@@ -292,6 +296,21 @@ def delete_card(card_id: str) -> dict[str, bool | str]:
 def agent_logs() -> list[AgentLogEntry]:
     logs = [AgentLogEntry(**log) for log in list_json("agent_logs")]
     return list(reversed(logs))
+
+
+@app.get("/agent-runs", response_model=list[AgentRunRecord])
+def agent_runs() -> list[AgentRunRecord]:
+    return [AgentRunRecord(**entry) for entry in reversed(list_json("agent_runs"))]
+
+
+@app.get("/agent-messages", response_model=list[AgentMessageRecord])
+def agent_messages() -> list[AgentMessageRecord]:
+    return [AgentMessageRecord(**entry) for entry in reversed(list_json("agent_messages"))]
+
+
+@app.get("/model-runtime", response_model=ModelRuntimeStatus)
+def model_runtime() -> ModelRuntimeStatus:
+    return ModelRuntimeStatus(**OllamaClient(timeout_seconds=3).status())
 
 
 @app.get("/leader-decisions", response_model=list[LeaderDecisionRecord])

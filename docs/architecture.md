@@ -35,6 +35,37 @@ Library
 Writing Studio
 ```
 
+## Ollama Deputy Runtime
+
+The implemented model handoff is card-scoped by `projectId` and `labId`:
+
+```text
+Reader (qwen3.5:cloud)
+        |
+        +--> Critic (gpt-oss:120b-cloud) --------+
+        |                                         |
+        +--> Librarian (gpt-oss:20b-cloud) -------+--> shared round-one packet
+                                                   |
+                         +-------------------------+------------------------+
+                         |                                                  |
+                         v                                                  v
+              Strategist (nemotron-3-super:cloud)              Experiment (qwen3.5:cloud)
+                         |                                                  |
+                         +-------------------------+------------------------+
+                                                   v
+                                  Coordinator (nemotron-3-super:cloud)
+                                                   |
+                                                   v
+                                  Leader pre-review (gpt-oss:120b-cloud)
+                                                   |
+                                                   v
+                                           Human Leader gate
+```
+
+Parallel deputies exchange state through validated JSON outputs. Each invocation
+creates an `AgentRun`; each validated deputy result creates an `AgentMessage`.
+No model may store knowledge in the Library without the human Leader decision.
+
 ## Core Entities
 
 - Paper: source document with metadata, parsed text, figures, tables, and sections.

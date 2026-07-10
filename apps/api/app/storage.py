@@ -24,6 +24,8 @@ TABLES = {
     "debate_sessions": [],
     "hypotheses": [],
     "experiment_plans": [],
+    "agent_runs": [],
+    "agent_messages": [],
     "ingest_folders": [],
     "paper_files": [],
     "paper_texts": [],
@@ -32,8 +34,9 @@ TABLES = {
 
 def connect() -> sqlite3.Connection:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(DB_PATH)
+    connection = sqlite3.connect(DB_PATH, timeout=30)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA busy_timeout = 30000")
     return connection
 
 
@@ -52,6 +55,7 @@ def connection_scope() -> Iterator[sqlite3.Connection]:
 
 def init_db() -> None:
     with connection_scope() as connection:
+        connection.execute("PRAGMA journal_mode = WAL")
         for table in TABLES:
             connection.execute(
                 f"""

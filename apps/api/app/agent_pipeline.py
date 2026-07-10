@@ -5,6 +5,15 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
+from .model_registry import model_for_role
+from .ollama_runtime import (
+    OllamaRuntimeError,
+    run_debate_deputies,
+    run_experiment_deputy,
+    run_reader_deputy,
+    run_writer_deputy,
+    uses_ollama_runtime,
+)
 from .storage import get_json, put_json
 
 
@@ -99,15 +108,28 @@ def run_reader(card_id: str) -> dict[str, Any]:
     text_record = get_json("paper_texts", paper_id)
     text = str(text_record.get("text", "")) if text_record else ""
     parsed = bool(text.strip())
-    claim_text = infer_claim_text(card, text)
-    evidence_items = infer_evidence_items(card, text)
-    limitations = infer_limitations(text)
+    reader_output: dict[str, Any] | None = None
+    if uses_ollama_runtime():
+        if not parsed or text_record is None:
+            raise PipelineError("Ollama Reader requires parsed PDF text. Re-scan the paper after enabling PyMuPDF.")
+        try:
+            reader_output = run_reader_deputy(card, text_record)
+        except OllamaRuntimeError as error:
+            raise PipelineError(f"Ollama Reader failed: {error}") from error
+        claim_text = reader_output["claims"][0]
+        evidence_items = [item["excerpt"] for item in reader_output["evidence"]]
+        limitations = reader_output["limitations"]
+    else:
+        claim_text = infer_claim_text(card, text)
+        evidence_items = infer_evidence_items(card, text)
+        limitations = infer_limitations(text)
     claim_id, evidence_record_ids = persist_reader_records(
         card,
         paper_id,
         claim_text,
         evidence_items,
         text_record,
+        reader_output["evidence"] if reader_output else None,
     )
 
     card["currentRoom"] = "reading"
@@ -117,7 +139,7 @@ def run_reader(card_id: str) -> dict[str, Any]:
     card["lastAgent"] = "reader"
     card["lastUpdated"] = current_clock_time()
     card["evidenceCount"] = max(card.get("evidenceCount", 0), len(evidence_items))
-    card["summary"] = (
+    card["summary"] = reader_output["summary"] if reader_output else (
         "Reader extracted claims and evidence from parsed text."
         if parsed
         else "Reader created a metadata-only extraction; full text parsing is still pending."
@@ -126,6 +148,11 @@ def run_reader(card_id: str) -> dict[str, Any]:
     card["details"].update(
         {
             "Reader status": "parsed_text" if parsed else "metadata_only",
+            "Reader runtime": "ollama_cloud" if reader_output else "deterministic_test_mode",
+            "Reader model": model_for_role("reader") if reader_output else "none",
+            "Abstract": reader_output["abstract"] if reader_output else "not extracted",
+            "Methods": reader_output["methods"] if reader_output else [],
+            "Results": reader_output["results"] if reader_output else [],
             "Claim candidates": [claim_text],
             "Evidence candidates": evidence_items,
             "Claim record": claim_id,
@@ -177,58 +204,110 @@ def run_debate(card_id: str) -> dict[str, Any]:
     claim_text = detail_text(card, "claim_text", card["title"])
     evidence_items = detail_list(card, "evidence_items") or detail_list(card, "supporting_evidence")
     supporting_evidence = detail_list(card, "supporting_evidence") or evidence_items[:2]
-    opposing_evidence = detail_list(card, "opposing_evidence") or [
-        "Control details require confirmation before Library storage.",
-        "Replication context is not yet strong enough for final reuse.",
-    ]
-    unresolved = detail_list(card, "unresolved_questions") or [
-        "Does the claim reproduce across independent conditions?",
-        "Which control is required before final approval?",
-    ]
-    suggested_experiments = detail_list(card, "suggested_experiments") or [
-        "Time-course validation with vehicle and unstressed controls",
-        "Replicate readout with an orthogonal marker",
-    ]
-    hypotheses = detail_list(card, "strategist_hypotheses") or [
-        "The observed effect may depend on a delayed adaptive response window.",
-    ]
+    orchestration: dict[str, Any] | None = None
+    if uses_ollama_runtime():
+        if not supporting_evidence:
+            raise PipelineError("Ollama debate requires at least one source-backed evidence item.")
+        try:
+            orchestration = run_debate_deputies(
+                card,
+                claim_text,
+                supporting_evidence,
+                detail_list(card, "opposing_evidence") or detail_list(card, "critic_comments"),
+            )
+        except OllamaRuntimeError as error:
+            raise PipelineError(f"Ollama debate orchestration failed: {error}") from error
+
+        critic = orchestration["critic"]
+        librarian = orchestration["librarian"]
+        strategist = orchestration["strategist"]
+        experiment = orchestration["experiment"]
+        coordinator = orchestration["coordinator"]
+        leader = orchestration["leader"]
+        supporting_evidence = librarian["verified_evidence"] or supporting_evidence
+        opposing_evidence = critic["opposing_evidence"] or critic["objections"]
+        critic_comments = critic["objections"]
+        unresolved = critic["unresolved_questions"] + librarian["traceability_issues"]
+        hypotheses = strategist["hypotheses"]
+        suggested_experiments = experiment["suggested_experiments"]
+        research_strategy_outputs = strategist["research_strategy"] + strategist["research_gaps"]
+        experiment_strategy_outputs = experiment["experiment_strategy"]
+        decision_criteria = coordinator["decision_criteria"]
+        conclusion = coordinator["conclusion"]
+        meeting_summary = coordinator["meeting_summary"]
+        cross_examination = orchestration["handoffTrace"]
+        hypothesis_tests = critic["unresolved_questions"] + experiment["feasibility_risks"]
+        agent_positions = [
+            f"Reader: {supporting_evidence[0]}",
+            f"Critic: {critic['verdict']}",
+            f"Librarian: {librarian['storage_recommendation']}",
+            f"Strategist: {hypotheses[0]}",
+            f"Experiment: {suggested_experiments[0]}",
+            f"Coordinator: {coordinator['leader_recommendation']}",
+            f"Leader deputy: {leader['recommendation']} - {leader['rationale']}",
+        ]
+        leader_pre_review = f"{leader['recommendation']}: {leader['rationale']}"
+        leader_blockers = leader["blocking_issues"]
+    else:
+        opposing_evidence = detail_list(card, "opposing_evidence") or [
+            "Control details require confirmation before Library storage.",
+            "Replication context is not yet strong enough for final reuse.",
+        ]
+        critic_comments = detail_list(card, "critic_comments") or [
+            "Evidence is promising, but controls and replication remain provisional."
+        ]
+        unresolved = detail_list(card, "unresolved_questions") or [
+            "Does the claim reproduce across independent conditions?",
+            "Which control is required before final approval?",
+        ]
+        suggested_experiments = detail_list(card, "suggested_experiments") or [
+            "Time-course validation with vehicle and unstressed controls",
+            "Replicate readout with an orthogonal marker",
+        ]
+        hypotheses = detail_list(card, "strategist_hypotheses") or [
+            "The observed effect may depend on a delayed adaptive response window.",
+        ]
+        agent_positions = build_agent_positions(
+            claim_text,
+            supporting_evidence,
+            opposing_evidence,
+            hypotheses,
+            suggested_experiments,
+        )
+        cross_examination = [
+            f"Critic challenges Reader evidence: {opposing_evidence[0]}",
+            f"Reader must trace the claim back to source spans: {supporting_evidence[0]}",
+            f"Strategist reframes the conflict as a testable gap: {hypotheses[0]}",
+        ]
+        hypothesis_tests = [
+            f"Stress-test hypothesis against opposing evidence: {opposing_evidence[0]}",
+            "Keep the claim provisional unless control, replicate, and source-trace criteria are satisfied.",
+            f"Pass the strongest falsifiable test to Experiment Bay: {suggested_experiments[0]}",
+        ]
+        conclusion = (
+            "The claim is promising but not final. It can move forward only as a provisional research hypothesis "
+            "with explicit controls, replication criteria, and source traceability."
+        )
+        research_strategy_outputs = [
+            "Search adjacent literature for contradiction, replication, and missing-control papers.",
+            "Rank the gap by novelty, feasibility, evidence strength, and manuscript relevance.",
+            "Keep unsupported claims out of the Library until Leader approval.",
+        ]
+        experiment_strategy_outputs = [
+            suggested_experiments[0],
+            "Define positive, vehicle, and unstressed controls before running the protocol.",
+            "Require an orthogonal readout before treating the claim as reusable evidence.",
+        ]
+        decision_criteria = [
+            "Approve only if supporting evidence survives Critic objections.",
+            "Request more evidence if source spans, controls, or replicate counts are incomplete.",
+            "Reject or archive if the hypothesis cannot be made experimentally testable.",
+        ]
+        meeting_summary = "Reader evidence, Critic objections, Strategy hypotheses, Experiment feasibility, and Librarian source checks were merged into one Leader packet."
+        leader_pre_review = "deterministic test mode; no model pre-review"
+        leader_blockers = unresolved
+
     debate_protocol = build_debate_protocol(claim_text)
-    agent_positions = build_agent_positions(
-        claim_text,
-        supporting_evidence,
-        opposing_evidence,
-        hypotheses,
-        suggested_experiments,
-    )
-    cross_examination = [
-        f"Critic challenges Reader evidence: {opposing_evidence[0]}",
-        f"Reader must trace the claim back to source spans: {supporting_evidence[0]}",
-        f"Strategist reframes the conflict as a testable gap: {hypotheses[0]}",
-    ]
-    hypothesis_tests = [
-        f"Stress-test hypothesis against opposing evidence: {opposing_evidence[0]}",
-        "Keep the claim provisional unless control, replicate, and source-trace criteria are satisfied.",
-        f"Pass the strongest falsifiable test to Experiment Bay: {suggested_experiments[0]}",
-    ]
-    conclusion = (
-        "The claim is promising but not final. It can move forward only as a provisional research hypothesis "
-        "with explicit controls, replication criteria, and source traceability."
-    )
-    research_strategy_outputs = [
-        "Search adjacent literature for contradiction, replication, and missing-control papers.",
-        "Rank the gap by novelty, feasibility, evidence strength, and manuscript relevance.",
-        "Keep unsupported claims out of the Library until Leader approval.",
-    ]
-    experiment_strategy_outputs = [
-        suggested_experiments[0],
-        "Define positive, vehicle, and unstressed controls before running the protocol.",
-        "Require an orthogonal readout before treating the claim as reusable evidence.",
-    ]
-    decision_criteria = [
-        "Approve only if supporting evidence survives Critic objections.",
-        "Request more evidence if source spans, controls, or replicate counts are incomplete.",
-        "Reject or archive if the hypothesis cannot be made experimentally testable.",
-    ]
 
     card["currentRoom"] = "leader"
     card["status"] = "waiting_for_leader_review"
@@ -239,15 +318,14 @@ def run_debate(card_id: str) -> dict[str, Any]:
     card["requiresUserReview"] = True
     card["approvalStatus"] = "pending_review"
     card["evidenceCount"] = max(card.get("evidenceCount", 0), len(supporting_evidence) + len(opposing_evidence))
-    card["summary"] = "Debate completed. Coordinator prepared a Leader review packet."
+    card["summary"] = meeting_summary
     card.setdefault("details", {})
     card["details"].update(
         {
             "claim_id": detail_text(card, "claim_id", f"claim-{card.get('sourcePaperId') or card['id']}"),
             "supporting_evidence": supporting_evidence,
             "opposing_evidence": opposing_evidence,
-            "critic_comments": detail_list(card, "critic_comments")
-            or ["Evidence is promising, but controls and replication remain provisional."],
+            "critic_comments": critic_comments,
             "unresolved_questions": unresolved,
             "suggested_experiments": suggested_experiments,
             "strategist_hypotheses": hypotheses,
@@ -259,8 +337,15 @@ def run_debate(card_id: str) -> dict[str, Any]:
             "research_strategy_outputs": research_strategy_outputs,
             "experiment_strategy_outputs": experiment_strategy_outputs,
             "decision_criteria": decision_criteria,
+            "model_runtime": "ollama_cloud" if orchestration else "deterministic_test_mode",
+            "deputy_models": [
+                f"{role}: {model_for_role(role)}"
+                for role in ["reader", "critic", "librarian", "strategist", "experiment", "coordinator", "leader"]
+            ] if orchestration else ["No model calls in deterministic test mode"],
+            "leader_pre_review": leader_pre_review,
+            "leader_blockers": leader_blockers,
             "leader_decision_status": "waiting_for_leader_review",
-            "meeting_summary": "Reader evidence, Critic objections, Strategy hypotheses, Experiment feasibility, and Librarian source checks were merged into one Leader packet.",
+            "meeting_summary": meeting_summary,
             "library_save_status": "blocked_until_leader_approval",
         }
     )
@@ -359,15 +444,40 @@ def design_experiment(card_id: str) -> dict[str, Any]:
         raise PipelineError("Experiment design can only run on hypothesis or feasibility cards.")
 
     statement = detail_text(card, "Hypothesis", card["title"])
-    experiment_card = build_experiment_card(
-        card,
-        [
+    model_plan: dict[str, Any] | None = None
+    if uses_ollama_runtime():
+        try:
+            model_plan = run_experiment_deputy(card)
+        except OllamaRuntimeError as error:
+            raise PipelineError(f"Ollama Experiment deputy failed: {error}") from error
+        protocol_outline = model_plan["protocol_outline"]
+        plan_title = model_plan["title"]
+    else:
+        protocol_outline = [
             "Define independent variable and vehicle control",
             "Run time-course readout with biological replicates",
             "Add failure criteria for saturation or toxicity",
-        ],
-        title=f"Experiment Plan: {statement[:48]}",
+        ]
+        plan_title = f"Experiment Plan: {statement[:48]}"
+    experiment_card = build_experiment_card(
+        card,
+        protocol_outline,
+        title=plan_title,
     )
+    if model_plan:
+        experiment_card["summary"] = model_plan["objective"]
+        experiment_card["details"].update(
+            {
+                "Model runtime": "ollama_cloud",
+                "Model": model_for_role("experiment"),
+                "Objective": model_plan["objective"],
+                "Controls": model_plan["controls"],
+                "Variables": model_plan["variables"],
+                "Readouts": model_plan["readouts"],
+                "Protocol outline": model_plan["protocol_outline"],
+                "Failure risks": model_plan["failure_risks"],
+            }
+        )
     experiment_card["status"] = "running"
     experiment_card["progress"] = 46
     put_json("cards", experiment_card["id"], experiment_card)
@@ -402,12 +512,20 @@ def design_experiment(card_id: str) -> dict[str, Any]:
 
 def draft_manuscript(card_id: str) -> dict[str, Any]:
     card = require_card(card_id)
+    if card.get("status") not in {"approved", "stored_in_library"} and card.get("currentRoom") != "library":
+        raise PipelineError("Writer can only use Leader-approved or Library-stored source cards.")
+    writer_output: dict[str, Any] | None = None
+    if uses_ollama_runtime():
+        try:
+            writer_output = run_writer_deputy(card)
+        except OllamaRuntimeError as error:
+            raise PipelineError(f"Ollama Writer deputy failed: {error}") from error
     manuscript_id = f"manuscript-{card['id']}"
     manuscript_card = {
         "id": manuscript_id,
         "projectId": card_project_id(card),
         "labId": card_lab_id(card),
-        "title": f"Manuscript Outline: {card['title'][:54]}",
+        "title": writer_output["title"] if writer_output else f"Manuscript Outline: {card['title'][:54]}",
         "type": "manuscript",
         "currentRoom": "writing",
         "status": "queued",
@@ -419,10 +537,14 @@ def draft_manuscript(card_id: str) -> dict[str, Any]:
         "sourcePaperId": card.get("sourcePaperId"),
         "evidenceCount": card.get("evidenceCount", 0),
         "approvalStatus": "needs_revision",
-        "summary": "Writer drafted an evidence-aware manuscript outline from the selected card.",
+        "summary": "Ollama Writer drafted an evidence-aware manuscript outline from approved knowledge." if writer_output else "Writer drafted an evidence-aware manuscript outline from the selected card.",
         "details": {
             "Source card": card["id"],
-            "Outline sections": ["Abstract", "Introduction", "Evidence synthesis", "Limitations"],
+            "Model runtime": "ollama_cloud" if writer_output else "deterministic_test_mode",
+            "Model": model_for_role("writer") if writer_output else "none",
+            "Outline sections": writer_output["outline_sections"] if writer_output else ["Abstract", "Introduction", "Evidence synthesis", "Limitations"],
+            "Citation requirements": writer_output["citation_requirements"] if writer_output else ["Citations required for every scientific claim"],
+            "Unsupported points": writer_output["unsupported_points"] if writer_output else [],
             "Citation status": "citation_required",
         },
     }
@@ -663,6 +785,7 @@ def persist_reader_records(
     claim_text: str,
     evidence_items: list[str],
     text_record: dict[str, Any] | None = None,
+    structured_evidence: list[dict[str, Any]] | None = None,
 ) -> tuple[str, list[str]]:
     now = current_iso_time()
     claim_id = f"claim-{paper_id}"
@@ -670,6 +793,9 @@ def persist_reader_records(
     source_backed = bool(text_record and str(text_record.get("text", "")).strip())
 
     for index, excerpt in enumerate(evidence_items, start=1):
+        model_evidence = structured_evidence[index - 1] if structured_evidence and index <= len(structured_evidence) else {}
+        strength = str(model_evidence.get("strength") or ("moderate" if source_backed and index == 1 else "weak"))
+        confidence_by_strength = {"strong": 88, "moderate": 72, "weak": 48, "unsupported": 20}
         evidence_id = f"evidence-{paper_id}-{index}"
         evidence_ids.append(evidence_id)
         put_json(
@@ -683,13 +809,13 @@ def persist_reader_records(
                 "paperId": paper_id,
                 "sourceCardId": card["id"],
                 "excerpt": excerpt,
-                "interpretation": (
+                "interpretation": str(model_evidence.get("interpretation")) if model_evidence.get("interpretation") else (
                     "Reader extracted this as provisional source-text support for debate."
                     if source_backed
                     else "Metadata-only evidence; full-text support has not been verified."
                 ),
-                "strength": "moderate" if source_backed and index == 1 else "weak",
-                "confidence": max(45, 78 - index * 8) if source_backed else 30,
+                "strength": strength,
+                "confidence": confidence_by_strength.get(strength, 40) if source_backed else 30,
                 "locator": locate_excerpt(text_record, paper_id, excerpt, index),
                 "createdAt": now,
             },

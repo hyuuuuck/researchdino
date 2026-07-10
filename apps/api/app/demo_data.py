@@ -1,8 +1,4 @@
-LOCAL_OLLAMA_MODEL = "local-research-dino"
-LOCAL_OLLAMA_MODEL_REF = "f0ee18320b71441183a82f5f4377cc81..."
-CLAUDE_OPUS_MODEL = "claude-opus-4-8"
-CLAUDE_SONNET_MODEL = "claude-sonnet-5"
-CLAUDE_HAIKU_MODEL = "claude-haiku-4-5"
+from .model_registry import model_for_role
 
 
 def deputy_assignment(deputy, label, responsibility, provider, model, model_ref, mode="primary", local=False):
@@ -20,26 +16,14 @@ def deputy_assignment(deputy, label, responsibility, provider, model, model_ref,
 
 
 def ollama_deputy(deputy, label, responsibility, mode="primary"):
+    model = model_for_role(deputy)
     return deputy_assignment(
         deputy,
         label,
         responsibility,
         "ollama",
-        LOCAL_OLLAMA_MODEL,
-        LOCAL_OLLAMA_MODEL_REF,
-        mode=mode,
-        local=True,
-    )
-
-
-def claude_deputy(deputy, label, responsibility, model=CLAUDE_SONNET_MODEL, mode="primary"):
-    return deputy_assignment(
-        deputy,
-        label,
-        responsibility,
-        "claude",
         model,
-        f"anthropic-api:{model}",
+        f"ollama-cloud:{model}",
         mode=mode,
         local=False,
     )
@@ -193,7 +177,7 @@ DEMO_ROOMS = [
         "status": "waiting_for_user",
         "agent": "leader",
         "modelAssignments": [
-            claude_deputy("leader", "Claude Leader / PI Deputy", "Final review, approval gates, and re-analysis orders", CLAUDE_OPUS_MODEL),
+            ollama_deputy("leader", "Ollama Leader Pre-Review Deputy", "Pre-review decision packets while keeping final approval with the human PI"),
             ollama_deputy("coordinator", "Ollama Briefing Deputy", "Condense department outputs before Leader review", "cross_check"),
         ],
         "x": 565,
@@ -211,7 +195,7 @@ DEMO_ROOMS = [
         "agent": "coordinator",
         "modelAssignments": [
             ollama_deputy("coordinator", "Ollama Coordinator Deputy", "Triage tasks, merge department output, and prepare Leader briefs"),
-            claude_deputy("leader", "Claude Brief QA Deputy", "Check whether a coordinator packet is Leader-ready", CLAUDE_SONNET_MODEL, "cross_check"),
+            ollama_deputy("leader", "Ollama Leader QA Deputy", "Check whether a coordinator packet is Leader-ready", "cross_check"),
         ],
         "x": 565,
         "y": 292,
@@ -228,7 +212,7 @@ DEMO_ROOMS = [
         "agent": "search",
         "modelAssignments": [
             ollama_deputy("search", "Ollama Search Deputy", "Local paper discovery, DOI/PDF candidate triage, and query expansion"),
-            claude_deputy("search", "Claude Query Expansion Deputy", "Generate broader literature search angles without touching private PDFs", CLAUDE_HAIKU_MODEL, "tool"),
+            ollama_deputy("reader", "Ollama Search Relevance Deputy", "Cross-check literature candidates against the active research question", "cross_check"),
         ],
         "sourceConnectors": PAPER_SOURCE_CONNECTORS,
         "x": 52,
@@ -246,7 +230,7 @@ DEMO_ROOMS = [
         "agent": "librarian",
         "modelAssignments": [
             ollama_deputy("librarian", "Ollama Librarian Deputy", "Normalize approved claims, evidence, tags, and reusable records"),
-            claude_deputy("librarian", "Claude Metadata QA Deputy", "Cross-check library record clarity and reuse boundaries", CLAUDE_HAIKU_MODEL, "cross_check"),
+            ollama_deputy("critic", "Ollama Library QA Deputy", "Cross-check library traceability and reuse boundaries", "cross_check"),
         ],
         "x": 1078,
         "y": 292,
@@ -263,7 +247,7 @@ DEMO_ROOMS = [
         "agent": "reader",
         "modelAssignments": [
             ollama_deputy("reader", "Ollama Reader Deputy", "Read local PDFs and extract claims, methods, limitations, and evidence spans"),
-            claude_deputy("reader", "Claude Claim QA Deputy", "Cross-check extracted claims and limitation framing before debate", CLAUDE_SONNET_MODEL, "cross_check"),
+            ollama_deputy("critic", "Ollama Claim QA Deputy", "Cross-check extracted claims and limitation framing before debate", "cross_check"),
         ],
         "x": 52,
         "y": 570,
@@ -280,11 +264,12 @@ DEMO_ROOMS = [
         "agent": "critic",
         "modelAssignments": [
             ollama_deputy("reader", "Ollama Reader Deputy", "Present source claims and supporting evidence"),
-            claude_deputy("critic", "Claude Critic Deputy", "Attack weak claims, missing controls, statistics, and counter-evidence", CLAUDE_SONNET_MODEL),
-            claude_deputy("strategist", "Claude Strategist Deputy", "Convert unresolved issues into gaps and hypotheses", CLAUDE_SONNET_MODEL),
-            claude_deputy("experiment", "Claude Experiment Deputy", "Check feasibility, controls, readouts, and protocol risks", CLAUDE_SONNET_MODEL),
-            ollama_deputy("librarian", "Ollama Librarian Deputy", "Record meeting outputs and approved evidence"),
-            claude_deputy("leader", "Claude Leader Review Deputy", "Flag whether the debate needs human or PI approval", CLAUDE_OPUS_MODEL, "cross_check"),
+            ollama_deputy("critic", "Ollama Critic Deputy", "Attack weak claims, missing controls, statistics, and counter-evidence"),
+            ollama_deputy("librarian", "Ollama Librarian Deputy", "Audit evidence traceability and storage safety"),
+            ollama_deputy("strategist", "Ollama Strategist Deputy", "Convert unresolved issues into gaps and hypotheses"),
+            ollama_deputy("experiment", "Ollama Experiment Deputy", "Check feasibility, controls, readouts, and protocol risks"),
+            ollama_deputy("coordinator", "Ollama Coordinator Deputy", "Merge disagreements and prepare the Leader packet"),
+            ollama_deputy("leader", "Ollama Leader Pre-Review Deputy", "Flag whether the debate needs human or PI approval", "cross_check"),
         ],
         "x": 322,
         "y": 570,
@@ -300,9 +285,9 @@ DEMO_ROOMS = [
         "status": "idle",
         "agent": "strategist",
         "modelAssignments": [
-            claude_deputy("strategist", "Claude Strategist Deputy", "Score research gaps, generate hypotheses, and route ideas", CLAUDE_SONNET_MODEL),
-            claude_deputy("critic", "Claude Critic Deputy", "Stress-test novelty and evidence strength", CLAUDE_OPUS_MODEL, "cross_check"),
-            ollama_deputy("strategist", "Ollama Strategy Fallback", "Keep a local strategy path available for private or offline work", "fallback"),
+            ollama_deputy("strategist", "Ollama Strategist Deputy", "Score research gaps, generate hypotheses, and route ideas"),
+            ollama_deputy("critic", "Ollama Critic Deputy", "Stress-test novelty and evidence strength", "cross_check"),
+            ollama_deputy("librarian", "Ollama Evidence Reuse Deputy", "Verify that strategy inputs remain linked to approved evidence", "cross_check"),
         ],
         "x": 592,
         "y": 570,
@@ -318,9 +303,9 @@ DEMO_ROOMS = [
         "status": "queued",
         "agent": "experiment",
         "modelAssignments": [
-            claude_deputy("experiment", "Claude Experiment Deputy", "Design variables, controls, readouts, protocols, and risk checks from literature-grounded strategy", CLAUDE_SONNET_MODEL),
-            claude_deputy("strategist", "Claude Strategy Deputy", "Translate debate outcomes and hypotheses into experiment strategy", CLAUDE_SONNET_MODEL, "cross_check"),
-            ollama_deputy("experiment", "Ollama Protocol Fallback", "Keep local protocol drafting available for private or offline work", "fallback"),
+            ollama_deputy("experiment", "Ollama Experiment Deputy", "Design variables, controls, readouts, protocols, and risk checks from literature-grounded strategy"),
+            ollama_deputy("strategist", "Ollama Strategy Deputy", "Translate debate outcomes and hypotheses into experiment strategy", "cross_check"),
+            ollama_deputy("critic", "Ollama Protocol Critic Deputy", "Challenge controls, confounders, and failure criteria", "cross_check"),
         ],
         "x": 862,
         "y": 570,
@@ -336,8 +321,9 @@ DEMO_ROOMS = [
         "status": "queued",
         "agent": "writer",
         "modelAssignments": [
-            claude_deputy("writer", "Claude Writer Deputy", "Draft citation-backed sections without inventing unsupported claims", CLAUDE_SONNET_MODEL),
+            ollama_deputy("writer", "Ollama Writer Deputy", "Draft citation-backed sections without inventing unsupported claims"),
             ollama_deputy("librarian", "Ollama Citation Deputy", "Verify reusable Library records and citation evidence", "cross_check"),
+            ollama_deputy("critic", "Ollama Manuscript Critic Deputy", "Flag unsupported statements and overclaiming", "cross_check"),
         ],
         "x": 1132,
         "y": 570,

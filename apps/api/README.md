@@ -59,8 +59,53 @@ The MVP exposes `POST /agent-actions` for local deterministic workflow actions:
 - `draft_manuscript`: create a Writing Studio outline from an approved source card.
 - `run_research_pipeline`: advance a Paper or Debate Card through Reader/Debate/Strategy/Experiment handoffs into a Leader review packet. It stops before Library storage; Leader approval is still required.
 
-These actions do not call an LLM yet. They create traceable workflow state so
-Ollama or remote model deputies can be wired into the same action boundary later.
+The default runtime is now Ollama Cloud through the local Ollama API. It does
+not silently fall back to template output when Ollama is unavailable. Every
+model call is persisted as an `AgentRun` and every validated response as an
+`AgentMessage`.
+
+Default deputy placement:
+
+- Search and Librarian: `gpt-oss:20b-cloud`
+- Reader, Experiment, and Writer: `qwen3.5:cloud`
+- Critic and Leader pre-review: `gpt-oss:120b-cloud`
+- Strategist and Coordinator: `nemotron-3-super:cloud`
+
+The Debate action executes these handoffs:
+
+1. Critic and Librarian run in parallel over Reader evidence.
+2. Strategist and Experiment run in parallel over both round-one outputs.
+3. Coordinator merges all disagreements and proposals.
+4. Leader deputy performs a non-binding pre-review.
+5. The human Leader remains the only approval and Library-storage authority.
+
+### Ollama Cloud Setup
+
+Recommended local-proxy setup on Windows:
+
+```powershell
+ollama signin
+powershell -ExecutionPolicy Bypass -File scripts\setup-ollama-cloud.ps1
+```
+
+The app then calls `http://127.0.0.1:11434/api/chat`; Ollama handles Cloud
+authentication. To use `https://ollama.com/api` directly instead, set
+`OLLAMA_BASE_URL=https://ollama.com`, set `OLLAMA_API_KEY` outside the repo,
+and override role model names if the direct API catalog uses different tags.
+
+Runtime inspection endpoints:
+
+- `GET /model-runtime`
+- `GET /agent-runs`
+- `GET /agent-messages`
+
+`RESEARCHDINO_AGENT_RUNTIME=deterministic` exists only for offline regression
+tests. It should not be used for real research runs.
+
+If a model call returns HTTP 429, the signed-in Ollama account has exhausted its
+current usage allowance. Model registration can still appear healthy in
+`/model-runtime`; the failed invocation is stored in `/agent-runs` with the
+provider error instead of generating fallback research content.
 
 ## Structured Research Ledger
 

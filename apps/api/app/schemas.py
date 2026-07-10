@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -235,6 +235,51 @@ class AgentLogEntry(BaseModel):
     title: str
     message: str
     relatedCardId: str | None = None
+
+
+class AgentRunRecord(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    sourceCardId: str
+    agent: AgentVariant
+    phase: str
+    provider: ModelProvider
+    model: str
+    status: Literal["running", "completed", "failed"]
+    inputSummary: str
+    output: dict[str, Any] | None = None
+    metrics: dict[str, int | str | None] = Field(default_factory=dict)
+    errorMessage: str | None = None
+    startedAt: str
+    completedAt: str | None = None
+
+
+class AgentMessageRecord(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    sourceCardId: str
+    runId: str
+    agent: AgentVariant
+    room: RoomId
+    phase: str
+    content: dict[str, Any]
+    createdAt: str
+
+
+class ModelRuntimeStatus(BaseModel):
+    mode: str
+    provider: str
+    baseUrl: str
+    authMode: str
+    apiKeyConfigured: bool
+    reachable: bool
+    configured: bool
+    roleModels: dict[str, str]
+    availableModels: list[str]
+    missingModels: list[str]
+    error: str | None = None
 
 
 class LeaderDecisionRequest(BaseModel):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+import os
 from pathlib import Path
 
 import pymupdf
@@ -20,6 +21,8 @@ from app.schemas import IngestFolderRequest  # noqa: E402
 
 class LocalPdfIngestTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.original_runtime = os.environ.get("RESEARCHDINO_AGENT_RUNTIME")
+        os.environ["RESEARCHDINO_AGENT_RUNTIME"] = "deterministic"
         self.original_db_path = storage.DB_PATH
         self.temp_dir = tempfile.TemporaryDirectory()
         self.root = Path(self.temp_dir.name)
@@ -29,6 +32,10 @@ class LocalPdfIngestTests(unittest.TestCase):
         storage.init_db()
 
     def tearDown(self) -> None:
+        if self.original_runtime is None:
+            os.environ.pop("RESEARCHDINO_AGENT_RUNTIME", None)
+        else:
+            os.environ["RESEARCHDINO_AGENT_RUNTIME"] = self.original_runtime
         storage.DB_PATH = self.original_db_path
         self.temp_dir.cleanup()
 
