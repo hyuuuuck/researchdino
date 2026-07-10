@@ -314,6 +314,9 @@ Goal: enrich local paper records using official and license-compliant sources.
 
 ## Next Recommended Work
 
+The real-research readiness review and acceptance criteria are tracked in
+[docs/research-readiness-report.md](./research-readiness-report.md).
+
 Continue M5 and M9:
 
 1. Restore Ollama Cloud usage by allowance reset, plan upgrade, or added usage.
