@@ -26,6 +26,7 @@ TABLES = {
     "experiment_plans": [],
     "agent_runs": [],
     "agent_messages": [],
+    "research_runs": [],
     "ingest_folders": [],
     "paper_files": [],
     "paper_texts": [],

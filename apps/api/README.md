@@ -98,6 +98,17 @@ Runtime inspection endpoints:
 - `GET /model-runtime`
 - `GET /agent-runs`
 - `GET /agent-messages`
+- `GET /research-runs`
+- `POST /research-runs`
+- `POST /research-runs/{run_id}/resume`
+- `GET /metadata/lookup?doi=...&provider=crossref|openalex|both`
+
+P0 reliability behavior:
+
+- Reader evidence is re-checked against stored PDF text. Exact or whitespace-normalized matches are `verified`; paraphrases are `unverified`.
+- A claim or debate without verified evidence is held for Leader review.
+- Research runs persist phase checkpoints so completed phases can be reused after a provider failure or process restart.
+- Crossref and OpenAlex adapters return DOI metadata only. Publisher full text still requires the user's permitted account or institutional access.
 
 `RESEARCHDINO_AGENT_RUNTIME=deterministic` exists only for offline regression
 tests. It should not be used for real research runs.

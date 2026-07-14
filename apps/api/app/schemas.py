@@ -310,6 +310,23 @@ class AgentActionResult(BaseModel):
     updatedCardIds: list[str]
     createdCardIds: list[str]
     message: str
+    runId: str | None = None
+
+
+class ResearchRunRecord(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    sourceCardId: str
+    action: AgentActionValue
+    status: Literal["queued", "running", "completed", "failed", "paused"]
+    phase: str
+    checkpoint: dict[str, Any] = Field(default_factory=dict)
+    resumeCount: int = 0
+    errorMessage: str | None = None
+    startedAt: str
+    updatedAt: str
+    completedAt: str | None = None
 
 
 class LibraryEntry(BaseModel):
@@ -353,7 +370,10 @@ class EvidenceRecord(BaseModel):
     interpretation: str
     strength: Literal["strong", "moderate", "weak", "contradictory", "unsupported"] = "moderate"
     confidence: int = Field(ge=0, le=100)
-    locator: dict[str, str | int | None] = Field(default_factory=dict)
+    locator: dict[str, str | int | bool | None] = Field(default_factory=dict)
+    verificationStatus: Literal["verified", "unverified"] = "unverified"
+    verificationReason: str = ""
+    matchedText: str | None = None
     createdAt: str
 
 
@@ -474,6 +494,24 @@ class PaperTextRecord(BaseModel):
     pageCount: int
     textLength: int
     extractedAt: str
+
+
+class MetadataCandidate(BaseModel):
+    provider: Literal["crossref", "openalex"]
+    doi: str
+    title: str = ""
+    authors: list[str] = Field(default_factory=list)
+    journal: str = ""
+    publisher: str = ""
+    year: int | None = None
+    abstract: str = ""
+    url: str = ""
+    sourceKind: Literal["metadata_only"] = "metadata_only"
+
+
+class MetadataLookupResponse(BaseModel):
+    doi: str
+    candidates: list[MetadataCandidate] = Field(default_factory=list)
 
 
 class IngestScanResult(BaseModel):

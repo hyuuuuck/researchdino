@@ -90,7 +90,7 @@ class FakeOllamaClient:
 
 class FailingOllamaClient:
     def chat_json(self, role: str, messages: list[dict[str, str]]) -> OllamaCallResult:
-        raise OllamaRuntimeError("Ollama HTTP 429: weekly usage limit reached")
+        raise OllamaRuntimeError("Ollama local process unavailable")
 
 
 class OllamaOrchestrationTests(unittest.TestCase):
@@ -159,7 +159,7 @@ class OllamaOrchestrationTests(unittest.TestCase):
 
         runs = storage.list_json("agent_runs")
         self.assertEqual(runs[0]["status"], "failed")
-        self.assertIn("weekly usage limit", runs[0]["errorMessage"])
+        self.assertIn("local process unavailable", runs[0]["errorMessage"])
         self.assertEqual(storage.list_json("agent_messages"), [])
 
 

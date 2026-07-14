@@ -208,6 +208,15 @@ Verification:
 - `npm.cmd run build`: passed after PDF Ingest panel integration.
 - Chrome headless desktop screenshot inspected at `1500x1200` after PDF Ingest panel pass.
 
+## P0 implementation checkpoint (2026-07-14)
+
+- `[x]` Evidence excerpt verification against stored PDF page text.
+- `[x]` Unverified evidence blocks claim/debate approval and remains visible for Leader review.
+- `[x]` Durable `ResearchRun` records with background execution, phase checkpoints, and resume.
+- `[x]` Crossref/OpenAlex DOI metadata-only adapters and `GET /metadata/lookup`.
+- `[x]` Ollama Cloud role model registration restored and verified with four Cloud tags.
+- `[!]` Live Ollama inference is still limited by the account weekly allowance; configuration health and live inference availability are tracked separately.
+
 ## M5: Reader Agent Pipeline
 
 Status: In progress. Ollama Cloud Reader runtime is implemented and mock-verified; Cloud models are registered, but live inference is blocked by the account weekly usage limit.

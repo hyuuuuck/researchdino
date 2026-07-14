@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
+from .evidence_verifier import verify_evidence_excerpt
 from .model_registry import model_for_role
 from .ollama_runtime import (
     OllamaRuntimeError,
@@ -14,6 +15,7 @@ from .ollama_runtime import (
     run_writer_deputy,
     uses_ollama_runtime,
 )
+from .run_tracker import checkpoint_research_run, create_research_run, update_research_run
 from .storage import get_json, put_json
 
 
@@ -38,21 +40,44 @@ def card_lab_id(card: dict[str, Any]) -> str | None:
     return str(lab_id) if lab_id else None
 
 
-def run_agent_action(card_id: str, action: str) -> dict[str, Any]:
-    if action == "run_research_pipeline":
-        return run_research_pipeline(card_id)
-    if action == "run_reader":
-        return run_reader(card_id)
-    if action == "run_debate":
-        return run_debate(card_id)
-    if action == "design_experiment":
-        return design_experiment(card_id)
-    if action == "draft_manuscript":
-        return draft_manuscript(card_id)
-    raise PipelineError(f"Unsupported agent action: {action}")
+def run_agent_action(card_id: str, action: str, run_id: str | None = None) -> dict[str, Any]:
+    card = require_card(card_id)
+    run = get_json("research_runs", run_id) if run_id else None
+    if run is None:
+        run = create_research_run(card, action)
+    elif run.get("status") == "completed":
+        raise PipelineError(f"ResearchRun {run['id']} is already completed.")
+    else:
+        update_research_run(
+            run["id"],
+            status="running",
+            phase="resume",
+            resume_count=int(run.get("resumeCount", 0)) + 1,
+        )
+
+    active_run_id = run["id"]
+    update_research_run(active_run_id, status="running", phase="starting")
+    try:
+        if action == "run_research_pipeline":
+            result = run_research_pipeline(card_id, active_run_id)
+        elif action == "run_reader":
+            result = run_reader(card_id, active_run_id)
+        elif action == "run_debate":
+            result = run_debate(card_id, active_run_id)
+        elif action == "design_experiment":
+            result = design_experiment(card_id, active_run_id)
+        elif action == "draft_manuscript":
+            result = draft_manuscript(card_id, active_run_id)
+        else:
+            raise PipelineError(f"Unsupported agent action: {action}")
+        update_research_run(active_run_id, status="completed", phase="completed", completed=True)
+        return {**result, "runId": active_run_id}
+    except Exception as error:
+        update_research_run(active_run_id, status="failed", phase="failed", error_message=str(error))
+        raise
 
 
-def run_research_pipeline(card_id: str) -> dict[str, Any]:
+def run_research_pipeline(card_id: str, run_id: str | None = None) -> dict[str, Any]:
     """Advance a source paper or active debate to a Leader review packet.
 
     This intentionally stops before Library storage. ResearchDino's human/PI
@@ -62,19 +87,32 @@ def run_research_pipeline(card_id: str) -> dict[str, Any]:
     updated_ids: list[str] = []
     created_ids: list[str] = []
 
+    run = get_run_json(run_id, "research_runs") if run_id else None
+    reader_checkpoint = (run or {}).get("checkpoint", {}).get("reader_completed", {})
     if source_card["type"] == "paper":
-        reader_result = run_reader(card_id)
-        updated_ids.extend(reader_result["updatedCardIds"])
-        created_ids.extend(reader_result["createdCardIds"])
-        debate_id = reader_result["createdCardIds"][0]
+        if reader_checkpoint.get("debateCardId"):
+            debate_id = str(reader_checkpoint["debateCardId"])
+        else:
+            if run_id:
+                checkpoint_research_run(run_id, "reader")
+            reader_result = run_reader(card_id, run_id)
+            updated_ids.extend(reader_result["updatedCardIds"])
+            created_ids.extend(reader_result["createdCardIds"])
+            debate_id = reader_result["createdCardIds"][0]
+            if run_id:
+                checkpoint_research_run(run_id, "reader_completed", debateCardId=debate_id)
     elif source_card["type"] in {"claim_debate", "paper_review", "contradiction_review", "hypothesis_debate"}:
         debate_id = card_id
     else:
         raise PipelineError("Research pipeline starts from a paper or debate card.")
 
-    debate_result = run_debate(debate_id)
+    if run_id:
+        checkpoint_research_run(run_id, "debate")
+    debate_result = run_debate(debate_id, run_id)
     updated_ids.extend(debate_result["updatedCardIds"])
     created_ids.extend(debate_result["createdCardIds"])
+    if run_id:
+        checkpoint_research_run(run_id, "debate_completed", debateCardId=debate_id)
 
     debate_card = require_card(debate_id)
     write_log(
@@ -97,8 +135,10 @@ def run_research_pipeline(card_id: str) -> dict[str, Any]:
     }
 
 
-def run_reader(card_id: str) -> dict[str, Any]:
+def run_reader(card_id: str, run_id: str | None = None) -> dict[str, Any]:
     card = require_card(card_id)
+    if run_id:
+        checkpoint_research_run(run_id, "reader_started", cardId=card_id)
     if card["type"] not in {"paper", "error"}:
         raise PipelineError("Reader can only run on paper cards.")
     if card["type"] == "error":
@@ -131,10 +171,21 @@ def run_reader(card_id: str) -> dict[str, Any]:
         text_record,
         reader_output["evidence"] if reader_output else None,
     )
+    evidence_records = [get_json("evidence_items", evidence_id) for evidence_id in evidence_record_ids]
+    verified_evidence_items = [
+        str(record["excerpt"])
+        for record in evidence_records
+        if record and record.get("verificationStatus") == "verified"
+    ]
+    unverified_evidence_items = [
+        str(record["excerpt"])
+        for record in evidence_records
+        if record and record.get("verificationStatus") != "verified"
+    ]
 
     card["currentRoom"] = "reading"
-    card["status"] = "running"
-    card["progress"] = 82 if parsed else 58
+    card["status"] = "running" if verified_evidence_items else "needs_more_evidence"
+    card["progress"] = 82 if verified_evidence_items else 58
     card["assignedAgent"] = "reader"
     card["lastAgent"] = "reader"
     card["lastUpdated"] = current_clock_time()
@@ -155,6 +206,13 @@ def run_reader(card_id: str) -> dict[str, Any]:
             "Results": reader_output["results"] if reader_output else [],
             "Claim candidates": [claim_text],
             "Evidence candidates": evidence_items,
+            "Verified evidence": verified_evidence_items,
+            "Unverified evidence": unverified_evidence_items,
+            "Evidence verification": {
+                "verifiedCount": len(verified_evidence_items),
+                "unverifiedCount": len(unverified_evidence_items),
+                "gate": "source-backed evidence required before Debate or Library",
+            },
             "Claim record": claim_id,
             "Evidence records": evidence_record_ids,
             "Limitations": limitations,
@@ -163,7 +221,15 @@ def run_reader(card_id: str) -> dict[str, Any]:
     )
     put_json("cards", card["id"], card)
 
-    debate_card = build_debate_card(card, claim_text, evidence_items, limitations, claim_id, evidence_record_ids)
+    debate_card = build_debate_card(
+        card,
+        claim_text,
+        verified_evidence_items,
+        limitations,
+        claim_id,
+        evidence_record_ids,
+        unverified_evidence_items,
+    )
     put_json("cards", debate_card["id"], debate_card)
 
     write_log(
@@ -186,6 +252,8 @@ def run_reader(card_id: str) -> dict[str, Any]:
         project_id=card_project_id(card),
         lab_id=card_lab_id(card),
     )
+    if run_id:
+        checkpoint_research_run(run_id, "reader_completed", debateCardId=debate_card["id"])
 
     return {
         "action": "run_reader",
@@ -196,8 +264,10 @@ def run_reader(card_id: str) -> dict[str, Any]:
     }
 
 
-def run_debate(card_id: str) -> dict[str, Any]:
+def run_debate(card_id: str, run_id: str | None = None) -> dict[str, Any]:
     card = require_card(card_id)
+    if run_id:
+        checkpoint_research_run(run_id, "debate_started", cardId=card_id)
     if card["type"] not in {"claim_debate", "paper_review", "contradiction_review", "hypothesis_debate"}:
         raise PipelineError("Debate can only run on debate/review cards.")
 
@@ -214,6 +284,7 @@ def run_debate(card_id: str) -> dict[str, Any]:
                 claim_text,
                 supporting_evidence,
                 detail_list(card, "opposing_evidence") or detail_list(card, "critic_comments"),
+                run_id=run_id,
             )
         except OllamaRuntimeError as error:
             raise PipelineError(f"Ollama debate orchestration failed: {error}") from error
@@ -428,6 +499,8 @@ def run_debate(card_id: str) -> dict[str, Any]:
         project_id=card_project_id(card),
         lab_id=card_lab_id(card),
     )
+    if run_id:
+        checkpoint_research_run(run_id, "debate_completed", cardId=card_id)
 
     return {
         "action": "run_debate",
@@ -438,8 +511,10 @@ def run_debate(card_id: str) -> dict[str, Any]:
     }
 
 
-def design_experiment(card_id: str) -> dict[str, Any]:
+def design_experiment(card_id: str, run_id: str | None = None) -> dict[str, Any]:
     card = require_card(card_id)
+    if run_id:
+        checkpoint_research_run(run_id, "experiment_started", cardId=card_id)
     if card["type"] not in {"hypothesis", "experiment_feasibility"}:
         raise PipelineError("Experiment design can only run on hypothesis or feasibility cards.")
 
@@ -500,6 +575,8 @@ def design_experiment(card_id: str) -> dict[str, Any]:
         project_id=card_project_id(card),
         lab_id=card_lab_id(card),
     )
+    if run_id:
+        checkpoint_research_run(run_id, "experiment_completed", cardId=card_id, experimentCardId=experiment_card["id"])
 
     return {
         "action": "design_experiment",
@@ -510,8 +587,10 @@ def design_experiment(card_id: str) -> dict[str, Any]:
     }
 
 
-def draft_manuscript(card_id: str) -> dict[str, Any]:
+def draft_manuscript(card_id: str, run_id: str | None = None) -> dict[str, Any]:
     card = require_card(card_id)
+    if run_id:
+        checkpoint_research_run(run_id, "writer_started", cardId=card_id)
     if card.get("status") not in {"approved", "stored_in_library"} and card.get("currentRoom") != "library":
         raise PipelineError("Writer can only use Leader-approved or Library-stored source cards.")
     writer_output: dict[str, Any] | None = None
@@ -559,6 +638,8 @@ def draft_manuscript(card_id: str) -> dict[str, Any]:
         project_id=card_project_id(card),
         lab_id=card_lab_id(card),
     )
+    if run_id:
+        checkpoint_research_run(run_id, "writer_completed", manuscriptCardId=manuscript_card["id"])
     return {
         "action": "draft_manuscript",
         "sourceCardId": card["id"],
@@ -575,9 +656,12 @@ def build_debate_card(
     limitations: list[str],
     claim_id: str,
     evidence_record_ids: list[str],
+    unverified_evidence: list[str] | None = None,
 ) -> dict[str, Any]:
     paper_id = paper_card.get("sourcePaperId") or paper_card["id"]
     debate_id = f"debate-{paper_id}"
+    has_verified_evidence = bool(evidence_items)
+    unverified_evidence = unverified_evidence or []
     return {
         "id": debate_id,
         "projectId": card_project_id(paper_card),
@@ -585,16 +669,20 @@ def build_debate_card(
         "title": f"Claim Debate: {claim_text[:52]}",
         "type": "claim_debate",
         "currentRoom": "debate",
-        "status": "debating",
+        "status": "debating" if has_verified_evidence else "needs_more_evidence",
         "progress": 42,
         "assignedAgent": "critic",
         "lastAgent": "reader",
         "lastUpdated": current_clock_time(),
-        "requiresUserReview": False,
+        "requiresUserReview": not has_verified_evidence,
         "sourcePaperId": paper_id,
         "evidenceCount": len(evidence_items),
         "approvalStatus": "draft",
-        "summary": "Reader output is ready for Critic, Strategist, and Experiment debate.",
+        "summary": (
+            "Reader output is ready for Critic, Strategist, and Experiment debate."
+            if has_verified_evidence
+            else "Reader output needs a verbatim source span before debate can start."
+        ),
         "details": {
             "debate_session_id": f"DB-{paper_id[-8:]}",
             "source_paper": paper_card["title"],
@@ -602,8 +690,9 @@ def build_debate_card(
             "claim_id": claim_id,
             "claim_text": claim_text,
             "evidence_items": evidence_items,
+            "unverified_evidence": unverified_evidence,
             "evidence_record_ids": evidence_record_ids,
-            "supporting_evidence": evidence_items[:2] or ["Metadata indicates the paper is ready for deeper reading."],
+            "supporting_evidence": evidence_items[:2],
             "opposing_evidence": limitations or ["Full limitation extraction is pending."],
             "critic_comments": ["Controls, sample size, and replication must be checked before approval."],
             "unresolved_questions": ["What evidence is strong enough for Library reuse?"],
@@ -790,6 +879,7 @@ def persist_reader_records(
     now = current_iso_time()
     claim_id = f"claim-{paper_id}"
     evidence_ids: list[str] = []
+    verified_evidence_ids: list[str] = []
     source_backed = bool(text_record and str(text_record.get("text", "")).strip())
 
     for index, excerpt in enumerate(evidence_items, start=1):
@@ -798,6 +888,10 @@ def persist_reader_records(
         confidence_by_strength = {"strong": 88, "moderate": 72, "weak": 48, "unsupported": 20}
         evidence_id = f"evidence-{paper_id}-{index}"
         evidence_ids.append(evidence_id)
+        verification = verify_evidence_excerpt(text_record, paper_id, excerpt, index)
+        verified = verification["status"] == "verified"
+        if verified:
+            verified_evidence_ids.append(evidence_id)
         put_json(
             "evidence_items",
             evidence_id,
@@ -814,9 +908,12 @@ def persist_reader_records(
                     if source_backed
                     else "Metadata-only evidence; full-text support has not been verified."
                 ),
-                "strength": strength,
-                "confidence": confidence_by_strength.get(strength, 40) if source_backed else 30,
-                "locator": locate_excerpt(text_record, paper_id, excerpt, index),
+                "strength": strength if verified else "unsupported",
+                "confidence": confidence_by_strength.get(strength, 40) if verified else 0,
+                "locator": verification["locator"],
+                "verificationStatus": verification["status"],
+                "verificationReason": verification["reason"],
+                "matchedText": verification["matchedText"],
                 "createdAt": now,
             },
         )
@@ -832,12 +929,12 @@ def persist_reader_records(
             "sourceCardId": card["id"],
             "text": claim_text,
             "type": "finding",
-            "status": "running" if source_backed else "queued",
+            "status": "running" if verified_evidence_ids else "queued",
             "approvalStatus": "draft",
-            "supportLevel": "moderate" if source_backed and evidence_ids else "unsupported",
+            "supportLevel": "moderate" if verified_evidence_ids else "unsupported",
             "evidenceIds": evidence_ids,
             "debateSessionId": None,
-            "requiresUserReview": not source_backed,
+            "requiresUserReview": not verified_evidence_ids,
             "createdAt": now,
             "updatedAt": now,
         },

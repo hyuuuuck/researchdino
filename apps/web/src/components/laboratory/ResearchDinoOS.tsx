@@ -26,6 +26,7 @@ import {
   type ResearchClaimRecord,
   type ResearchDataMode,
   type ResearchLabState,
+  type ResearchRunRecord,
   type UpdateWorkflowCardInput,
 } from "../../api/researchApi";
 import type {
@@ -446,6 +447,7 @@ export function ResearchDinoOS() {
   const [cards, setCards] = useState<WorkflowCardData[]>(initialResearchLabState.cards);
   const [logs, setLogs] = useState<AgentLogEntry[]>(initialResearchLabState.logs);
   const [agentRuns, setAgentRuns] = useState<AgentRunRecord[]>(initialResearchLabState.agentRuns);
+  const [researchRuns, setResearchRuns] = useState<ResearchRunRecord[]>(initialResearchLabState.researchRuns);
   const [modelRuntime, setModelRuntime] = useState<ModelRuntimeStatus>(initialResearchLabState.modelRuntime);
   const [claims, setClaims] = useState<ResearchClaimRecord[]>(initialResearchLabState.claims);
   const [evidence, setEvidence] = useState<EvidenceRecord[]>(initialResearchLabState.evidence);
@@ -471,6 +473,7 @@ export function ResearchDinoOS() {
     setCards(nextState.cards);
     setLogs(nextState.logs);
     setAgentRuns(nextState.agentRuns);
+    setResearchRuns(nextState.researchRuns);
     setModelRuntime(nextState.modelRuntime);
     setClaims(nextState.claims);
     setEvidence(nextState.evidence);
@@ -526,6 +529,10 @@ export function ResearchDinoOS() {
   const projectAgentRuns = useMemo(
     () => agentRuns.filter((run) => belongsToProject(run, activeProject?.id ?? defaultProjectId) && belongsToLabInstance(run, activeLab)),
     [activeLab?.id, activeProject?.id, agentRuns],
+  );
+  const projectResearchRuns = useMemo(
+    () => researchRuns.filter((run) => belongsToProject(run, activeProject?.id ?? defaultProjectId) && belongsToLabInstance(run, activeLab)),
+    [activeLab?.id, activeProject?.id, researchRuns],
   );
   const activePaper = firstCard(projectCards, (card) => card.type === "paper" && card.status !== "failed");
   const activeDebate =
@@ -1010,7 +1017,7 @@ export function ResearchDinoOS() {
               />
             )}
             {screen === "report" && <ManuscriptScreen card={firstCard(projectCards, (card) => card.type === "manuscript")} project={activeProject} />}
-            {screen === "agents" && <AgentsScreen rooms={rooms} cards={projectCards} runs={projectAgentRuns} />}
+            {screen === "agents" && <AgentsScreen rooms={rooms} cards={projectCards} runs={projectAgentRuns} researchRuns={projectResearchRuns} />}
             {screen === "library" && <LibraryScreen project={activeProject} cards={libraryCards} allCards={projectCards} />}
             {screen === "reports" && (
               <ReportsScreen
@@ -1628,7 +1635,7 @@ function ManuscriptScreen({ card, project }: { card?: WorkflowCardData; project?
   );
 }
 
-function AgentsScreen({ rooms, cards, runs }: { rooms: LaboratoryRoomData[]; cards: WorkflowCardData[]; runs: AgentRunRecord[] }) {
+function AgentsScreen({ rooms, cards, runs, researchRuns }: { rooms: LaboratoryRoomData[]; cards: WorkflowCardData[]; runs: AgentRunRecord[]; researchRuns: ResearchRunRecord[] }) {
   const [selectedRoomId, setSelectedRoomId] = useState<RoomId>("leader");
   const agents = rooms.map((room) => ({
     roomId: room.id,
@@ -1761,6 +1768,23 @@ function AgentsScreen({ rooms, cards, runs }: { rooms: LaboratoryRoomData[]; car
                 </div>
               ) : (
                 <p>No Ollama model run has been recorded for this project/lab yet.</p>
+              )}
+            </section>
+
+            <section className="rdos-agent-section">
+              <h4>Research Runs</h4>
+              {researchRuns.length > 0 ? (
+                <div className="rdos-agent-model-list">
+                  {researchRuns.slice(0, 5).map((researchRun) => (
+                    <div className="rdos-agent-model" key={researchRun.id}>
+                      <b>{researchRun.action.replace(/_/g, " ")}</b>
+                      <span>{researchRun.phase.replace(/_/g, " ")} / {researchRun.status}</span>
+                      <p>{researchRun.errorMessage ?? `${Object.keys(researchRun.checkpoint).length} checkpoints saved`}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>No durable ResearchRun has been recorded for this project/lab yet.</p>
               )}
             </section>
           </aside>

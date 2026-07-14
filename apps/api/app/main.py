@@ -3,13 +3,15 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .agent_pipeline import PipelineError, run_agent_action
 from .demo_data import DEMO_ROOMS
 from .ingest import is_pymupdf_available, scan_pdf_folder
 from .ollama_runtime import OllamaClient
+from .run_tracker import create_research_run
+from .source_adapters import MetadataAdapterError, lookup_metadata, normalize_doi
 from .schemas import (
     AgentActionRequest,
     AgentActionResult,
@@ -31,11 +33,14 @@ from .schemas import (
     LeaderDecisionRequest,
     LibraryEntry,
     ModelRuntimeStatus,
+    MetadataCandidate,
+    MetadataLookupResponse,
     PaperFileRecord,
     PaperTextRecord,
     ResearchClaim,
     ResearchProject,
     ResearchProjectCreateRequest,
+    ResearchRunRecord,
     WorkflowCard,
     WorkflowCardCreateRequest,
     WorkflowCardPatchRequest,
@@ -303,6 +308,11 @@ def agent_runs() -> list[AgentRunRecord]:
     return [AgentRunRecord(**entry) for entry in reversed(list_json("agent_runs"))]
 
 
+@app.get("/research-runs", response_model=list[ResearchRunRecord])
+def research_runs() -> list[ResearchRunRecord]:
+    return [ResearchRunRecord(**entry) for entry in reversed(list_json("research_runs"))]
+
+
 @app.get("/agent-messages", response_model=list[AgentMessageRecord])
 def agent_messages() -> list[AgentMessageRecord]:
     return [AgentMessageRecord(**entry) for entry in reversed(list_json("agent_messages"))]
@@ -364,6 +374,41 @@ def create_agent_action(request: AgentActionRequest) -> AgentActionResult:
     return AgentActionResult(**result)
 
 
+def execute_background_research_run(run_id: str) -> None:
+    record = get_json("research_runs", run_id)
+    if record is None:
+        return
+    try:
+        run_agent_action(record["sourceCardId"], record["action"], run_id=run_id)
+    except PipelineError:
+        # The durable ResearchRun record contains the failure and checkpoint.
+        return
+
+
+@app.post("/research-runs", response_model=ResearchRunRecord)
+def enqueue_research_run(request: AgentActionRequest, background_tasks: BackgroundTasks) -> ResearchRunRecord:
+    card = get_json("cards", request.cardId)
+    if card is None:
+        raise HTTPException(status_code=404, detail=f"Card {request.cardId} was not found")
+    record = create_research_run(card, request.action)
+    background_tasks.add_task(execute_background_research_run, record["id"])
+    return ResearchRunRecord(**record)
+
+
+@app.post("/research-runs/{run_id}/resume", response_model=AgentActionResult)
+def resume_research_run(run_id: str) -> AgentActionResult:
+    record = get_json("research_runs", run_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"ResearchRun {run_id} was not found")
+    if record.get("status") == "completed":
+        raise HTTPException(status_code=409, detail="Completed ResearchRun cannot be resumed")
+    try:
+        result = run_agent_action(record["sourceCardId"], record["action"], run_id=run_id)
+    except PipelineError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return AgentActionResult(**result)
+
+
 @app.post("/ingest/folder", response_model=IngestFolderRecord)
 def register_ingest_folder(request: IngestFolderRequest) -> IngestFolderRecord:
     folder = Path(request.path).expanduser().resolve(strict=False)
@@ -408,6 +453,21 @@ def paper_text(paper_id: str) -> PaperTextRecord:
     if record is None:
         raise HTTPException(status_code=404, detail="Parsed paper text not found")
     return PaperTextRecord(**record)
+
+
+@app.get("/metadata/lookup", response_model=MetadataLookupResponse)
+def metadata_lookup(doi: str, provider: str = "both") -> MetadataLookupResponse:
+    normalized = normalize_doi(doi)
+    if not normalized:
+        raise HTTPException(status_code=400, detail="A DOI is required")
+    try:
+        candidates = lookup_metadata(normalized, provider)
+    except MetadataAdapterError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return MetadataLookupResponse(
+        doi=normalized,
+        candidates=[MetadataCandidate(**candidate) for candidate in candidates],
+    )
 
 
 @app.post("/ingest/scan", response_model=IngestScanResult)

@@ -14,7 +14,8 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, ValidationError
 
 from .model_registry import DEFAULT_ROLE_MODELS, model_for_role, role_model_assignments
-from .storage import put_json
+from .run_tracker import checkpoint_research_run
+from .storage import get_json, put_json
 
 
 ROLE_ROOMS = {
@@ -428,6 +429,7 @@ def run_debate_deputies(
     supporting_evidence: list[str],
     limitations: list[str],
     client: OllamaClient | None = None,
+    run_id: str | None = None,
 ) -> dict[str, Any]:
     shared = {
         "claim": claim_text,
@@ -448,27 +450,35 @@ def run_debate_deputies(
         "required_json": {"verified_evidence": ["string"], "traceability_issues": ["string"], "storage_recommendation": "string"},
     }
 
-    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="researchdino-round1") as executor:
-        critic_future = executor.submit(
-            execute_role,
-            "critic",
-            "debate_round_1_critique",
-            [{"role": "system", "content": system_prompt("critic")}, {"role": "user", "content": json_context(critic_prompt)}],
-            card,
-            CriticDeputyOutput,
-            runtime_client,
-        )
-        librarian_future = executor.submit(
-            execute_role,
-            "librarian",
-            "debate_round_1_traceability",
-            [{"role": "system", "content": system_prompt("librarian")}, {"role": "user", "content": json_context(librarian_prompt)}],
-            card,
-            LibrarianDeputyOutput,
-            runtime_client,
-        )
-        critic = critic_future.result()
-        librarian = librarian_future.result()
+    checkpoint = (get_json("research_runs", run_id) or {}).get("checkpoint", {}) if run_id else {}
+    round_one_checkpoint = checkpoint.get("debate_round_1", {})
+    if round_one_checkpoint.get("critic") and round_one_checkpoint.get("librarian"):
+        critic = round_one_checkpoint["critic"]
+        librarian = round_one_checkpoint["librarian"]
+    else:
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="researchdino-round1") as executor:
+            critic_future = executor.submit(
+                execute_role,
+                "critic",
+                "debate_round_1_critique",
+                [{"role": "system", "content": system_prompt("critic")}, {"role": "user", "content": json_context(critic_prompt)}],
+                card,
+                CriticDeputyOutput,
+                runtime_client,
+            )
+            librarian_future = executor.submit(
+                execute_role,
+                "librarian",
+                "debate_round_1_traceability",
+                [{"role": "system", "content": system_prompt("librarian")}, {"role": "user", "content": json_context(librarian_prompt)}],
+                card,
+                LibrarianDeputyOutput,
+                runtime_client,
+            )
+            critic = critic_future.result()
+            librarian = librarian_future.result()
+        if run_id:
+            checkpoint_research_run(run_id, "debate_round_1", critic=critic, librarian=librarian)
 
     round_two_context = {**shared, "critic": critic, "librarian": librarian}
     strategist_prompt = {
@@ -482,27 +492,34 @@ def run_debate_deputies(
         "required_json": {"suggested_experiments": ["string"], "experiment_strategy": ["string"], "feasibility_risks": ["string"]},
     }
 
-    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="researchdino-round2") as executor:
-        strategist_future = executor.submit(
-            execute_role,
-            "strategist",
-            "debate_round_2_strategy",
-            [{"role": "system", "content": system_prompt("strategist")}, {"role": "user", "content": json_context(strategist_prompt)}],
-            card,
-            StrategistDeputyOutput,
-            runtime_client,
-        )
-        experiment_future = executor.submit(
-            execute_role,
-            "experiment",
-            "debate_round_2_experiment",
-            [{"role": "system", "content": system_prompt("experiment")}, {"role": "user", "content": json_context(experiment_prompt)}],
-            card,
-            ExperimentDeputyOutput,
-            runtime_client,
-        )
-        strategist = strategist_future.result()
-        experiment = experiment_future.result()
+    round_two_checkpoint = checkpoint.get("debate_round_2", {})
+    if round_two_checkpoint.get("strategist") and round_two_checkpoint.get("experiment"):
+        strategist = round_two_checkpoint["strategist"]
+        experiment = round_two_checkpoint["experiment"]
+    else:
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="researchdino-round2") as executor:
+            strategist_future = executor.submit(
+                execute_role,
+                "strategist",
+                "debate_round_2_strategy",
+                [{"role": "system", "content": system_prompt("strategist")}, {"role": "user", "content": json_context(strategist_prompt)}],
+                card,
+                StrategistDeputyOutput,
+                runtime_client,
+            )
+            experiment_future = executor.submit(
+                execute_role,
+                "experiment",
+                "debate_round_2_experiment",
+                [{"role": "system", "content": system_prompt("experiment")}, {"role": "user", "content": json_context(experiment_prompt)}],
+                card,
+                ExperimentDeputyOutput,
+                runtime_client,
+            )
+            strategist = strategist_future.result()
+            experiment = experiment_future.result()
+        if run_id:
+            checkpoint_research_run(run_id, "debate_round_2", strategist=strategist, experiment=experiment)
 
     full_packet = {
         **shared,
@@ -511,51 +528,61 @@ def run_debate_deputies(
         "strategist": strategist,
         "experiment": experiment,
     }
-    coordinator = execute_role(
-        "coordinator",
-        "debate_round_3_fan_in",
-        [
-            {"role": "system", "content": system_prompt("coordinator")},
-            {
-                "role": "user",
-                "content": json_context(
-                    {
-                        **full_packet,
-                        "task": "Synthesize the deputy outputs without erasing disagreement. Prepare a decision packet for the Leader.",
-                        "required_json": {
-                            "conclusion": "string",
-                            "meeting_summary": "string",
-                            "decision_criteria": ["string"],
-                            "leader_recommendation": "string",
-                        },
-                    }
-                ),
-            },
-        ],
-        card,
-        CoordinatorDeputyOutput,
-        runtime_client,
-    )
-    leader = execute_role(
-        "leader",
-        "leader_pre_review",
-        [
-            {"role": "system", "content": system_prompt("leader") + " You advise the human PI but cannot approve or store knowledge yourself."},
-            {
-                "role": "user",
-                "content": json_context(
-                    {
-                        "packet": {**full_packet, "coordinator": coordinator},
-                        "task": "Pre-review this packet and identify blockers. Human approval remains mandatory.",
-                        "required_json": {"recommendation": "approve|reject|needs_more_evidence", "rationale": "string", "blocking_issues": ["string"]},
-                    }
-                ),
-            },
-        ],
-        card,
-        LeaderDeputyOutput,
-        runtime_client,
-    )
+    coordinator_checkpoint = checkpoint.get("debate_round_3", {})
+    coordinator = coordinator_checkpoint.get("coordinator")
+    if not coordinator:
+        coordinator = execute_role(
+            "coordinator",
+            "debate_round_3_fan_in",
+            [
+                {"role": "system", "content": system_prompt("coordinator")},
+                {
+                    "role": "user",
+                    "content": json_context(
+                        {
+                            **full_packet,
+                            "task": "Synthesize the deputy outputs without erasing disagreement. Prepare a decision packet for the Leader.",
+                            "required_json": {
+                                "conclusion": "string",
+                                "meeting_summary": "string",
+                                "decision_criteria": ["string"],
+                                "leader_recommendation": "string",
+                            },
+                        }
+                    ),
+                },
+            ],
+            card,
+            CoordinatorDeputyOutput,
+            runtime_client,
+        )
+        if run_id:
+            checkpoint_research_run(run_id, "debate_round_3", coordinator=coordinator)
+    leader_checkpoint = (get_json("research_runs", run_id) or {}).get("checkpoint", {}) if run_id else {}
+    leader = leader_checkpoint.get("leader_pre_review")
+    if not leader:
+        leader = execute_role(
+            "leader",
+            "leader_pre_review",
+            [
+                {"role": "system", "content": system_prompt("leader") + " You advise the human PI but cannot approve or store knowledge yourself."},
+                {
+                    "role": "user",
+                    "content": json_context(
+                        {
+                            "packet": {**full_packet, "coordinator": coordinator},
+                            "task": "Pre-review this packet and identify blockers. Human approval remains mandatory.",
+                            "required_json": {"recommendation": "approve|reject|needs_more_evidence", "rationale": "string", "blocking_issues": ["string"]},
+                        }
+                    ),
+                },
+            ],
+            card,
+            LeaderDeputyOutput,
+            runtime_client,
+        )
+        if run_id:
+            checkpoint_research_run(run_id, "leader_pre_review", leader=leader)
     return {
         "critic": critic,
         "librarian": librarian,

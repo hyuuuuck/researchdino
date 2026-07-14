@@ -24,6 +24,7 @@ export interface ResearchLabState {
   logs: AgentLogEntry[];
   agentRuns: AgentRunRecord[];
   agentMessages: AgentMessageRecord[];
+  researchRuns: ResearchRunRecord[];
   modelRuntime: ModelRuntimeStatus;
   claims: ResearchClaimRecord[];
   evidence: EvidenceRecord[];
@@ -61,6 +62,23 @@ export interface AgentActionResult {
   updatedCardIds: string[];
   createdCardIds: string[];
   message: string;
+  runId?: string | null;
+}
+
+export interface ResearchRunRecord {
+  id: string;
+  projectId: string;
+  labId?: string;
+  sourceCardId: string;
+  action: AgentActionValue;
+  status: "queued" | "running" | "completed" | "failed" | "paused";
+  phase: string;
+  checkpoint: Record<string, unknown>;
+  resumeCount: number;
+  errorMessage: string | null;
+  startedAt: string;
+  updatedAt: string;
+  completedAt: string | null;
 }
 
 export interface AgentRunRecord {
@@ -137,7 +155,10 @@ export interface EvidenceRecord {
   interpretation: string;
   strength: string;
   confidence: number;
-  locator: Record<string, string | number | null>;
+  locator: Record<string, string | number | boolean | null>;
+  verificationStatus: "verified" | "unverified";
+  verificationReason: string;
+  matchedText: string | null;
   createdAt: string;
 }
 
@@ -242,6 +263,7 @@ export function getDemoResearchLabState(): ResearchLabState {
     logs: agentLogs,
     agentRuns: [],
     agentMessages: [],
+    researchRuns: [],
     modelRuntime: {
       mode: "demo",
       provider: "ollama_cloud",
@@ -287,7 +309,7 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     return getDemoResearchLabState();
   }
 
-  const [projects, labInstances, rooms, cards, logs, agentRuns, agentMessages, modelRuntime, claims, evidence, debateSessions, hypotheses, experimentPlans] = await Promise.all([
+  const [projects, labInstances, rooms, cards, logs, agentRuns, agentMessages, researchRuns, modelRuntime, claims, evidence, debateSessions, hypotheses, experimentPlans] = await Promise.all([
     fetchJson<ResearchProjectData[]>("/projects"),
     fetchJson<LabInstanceData[]>("/lab-instances"),
     fetchJson<LaboratoryRoomData[]>("/rooms"),
@@ -295,6 +317,7 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     fetchJson<AgentLogEntry[]>("/agent-logs"),
     fetchJson<AgentRunRecord[]>("/agent-runs"),
     fetchJson<AgentMessageRecord[]>("/agent-messages"),
+    fetchJson<ResearchRunRecord[]>("/research-runs"),
     fetchJson<ModelRuntimeStatus>("/model-runtime"),
     fetchJson<ResearchClaimRecord[]>("/claims"),
     fetchJson<EvidenceRecord[]>("/evidence"),
@@ -311,6 +334,7 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     logs,
     agentRuns,
     agentMessages,
+    researchRuns,
     modelRuntime,
     claims,
     evidence,

@@ -104,12 +104,17 @@ class LocalPdfIngestTests(unittest.TestCase):
 
         result = run_agent_action(f"card-{paper['id']}", "run_reader")
         self.assertEqual(len(result["createdCardIds"]), 1)
+        self.assertTrue(result["runId"].startswith("research-run-"))
+        research_run = storage.get_json("research_runs", result["runId"])
+        self.assertEqual(research_run["status"], "completed")
+        self.assertIn("reader_completed", research_run["checkpoint"])
         evidence = [
             item
             for item in storage.list_json("evidence_items")
             if item.get("paperId") == paper["id"]
         ]
         self.assertEqual([item["locator"]["pageNumber"] for item in evidence], [1, 1, 2])
+        self.assertTrue(all(item["verificationStatus"] == "verified" for item in evidence))
 
     def test_same_pdf_is_isolated_between_labs(self) -> None:
         self.register("lab-beta")
