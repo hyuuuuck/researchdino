@@ -121,6 +121,22 @@ def ingest_scope_key(project_id: str, lab_id: str) -> str:
     return f"{project_id}:{lab_id}"
 
 
+def card_has_unverified_evidence(card: dict) -> bool:
+    detail_unverified = card.get("details", {}).get("Unverified evidence", [])
+    if detail_unverified:
+        return True
+    claim_id = card.get("details", {}).get("Claim record")
+    evidence_records = list_json("evidence_items")
+    return any(
+        record.get("verificationStatus") != "verified"
+        and (
+            record.get("sourceCardId") == card.get("id")
+            or (claim_id and record.get("claimId") == claim_id)
+        )
+        for record in evidence_records
+    )
+
+
 ROOM_AGENT_MAP = {
     "coordinator": "coordinator",
     "collection": "search",
@@ -681,6 +697,11 @@ def create_leader_decision(request: LeaderDecisionRequest) -> LeaderDecisionReco
     card = get_json("cards", request.cardId)
     if card is None:
         raise HTTPException(status_code=404, detail="Workflow card not found")
+    if request.decision == "stored_in_library" and card_has_unverified_evidence(card):
+        raise HTTPException(
+            status_code=400,
+            detail="Unverified evidence must be resolved before this card can be stored in Library",
+        )
 
     next_status = {
         "approved": "approved",
