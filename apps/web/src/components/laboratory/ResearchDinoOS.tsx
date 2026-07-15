@@ -624,6 +624,14 @@ export function ResearchDinoOS() {
     setActionMessage(`${count} lab${count > 1 ? "s" : ""} active.`);
   }
 
+  function handleToggleLab(labId: string) {
+    const lab = labInstances.find((item) => item.id === labId);
+    if (!lab) return;
+    const nextStatus = lab.status === "paused" ? "queued" : "paused";
+    void persistLabPatches([{ id: labId, patch: { status: nextStatus, enabled: true } }]);
+    setActionMessage(`${lab.name} ${nextStatus === "paused" ? "paused" : "resumed"}.`);
+  }
+
   function handleSetParallelMode(mode: LabParallelMode) {
     setParallelMode(mode);
     const currentProjectId = activeProject?.id ?? defaultProjectId;
@@ -1015,6 +1023,7 @@ export function ResearchDinoOS() {
                 onSetLabCount={handleSetLabCount}
                 onSetParallelMode={handleSetParallelMode}
                 onAssignLabProject={handleAssignLabProject}
+                onToggleLab={handleToggleLab}
                 onNavigate={setScreen}
               />
             )}
@@ -1108,6 +1117,7 @@ function MapScreen({
   onSetLabCount,
   onSetParallelMode,
   onAssignLabProject,
+  onToggleLab,
   onNavigate,
 }: {
   rooms: LaboratoryRoomData[];
@@ -1123,6 +1133,7 @@ function MapScreen({
   onSetLabCount: (count: number) => void;
   onSetParallelMode: (mode: LabParallelMode) => void;
   onAssignLabProject: (labId: string, projectId: string) => void;
+  onToggleLab: (labId: string) => void;
   onNavigate: (screen: ScreenId) => void;
 }) {
   const queueCards = cards.filter((card) => !completeStatuses.has(card.status)).slice(0, 4);
@@ -1140,6 +1151,7 @@ function MapScreen({
         onSetLabCount={onSetLabCount}
         onSetParallelMode={onSetParallelMode}
         onAssignLabProject={onAssignLabProject}
+        onToggleLab={onToggleLab}
       />
       <div className="rdos-map-stage">
         <svg className="rdos-map-flow" viewBox="0 0 1300 685" aria-hidden="true">
@@ -1238,6 +1250,7 @@ function ParallelLabsPanel({
   onSetLabCount,
   onSetParallelMode,
   onAssignLabProject,
+  onToggleLab,
 }: {
   projects: ResearchProjectData[];
   labs: LabInstanceData[];
@@ -1248,6 +1261,7 @@ function ParallelLabsPanel({
   onSetLabCount: (count: number) => void;
   onSetParallelMode: (mode: LabParallelMode) => void;
   onAssignLabProject: (labId: string, projectId: string) => void;
+  onToggleLab: (labId: string) => void;
 }) {
   const enabledCount = labs.filter((lab) => lab.enabled).length;
 
@@ -1309,6 +1323,9 @@ function ParallelLabsPanel({
                 <span>{running} Running</span>
                 <span>{waiting} Waiting</span>
                 <span>{complete} Done</span>
+                <button className="rdos-lab-toggle" type="button" onClick={() => onToggleLab(lab.id)}>
+                  {lab.status === "paused" ? "Resume" : "Pause"}
+                </button>
               </footer>
             </article>
           );
