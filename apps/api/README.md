@@ -108,10 +108,9 @@ P0 reliability behavior:
 `RESEARCHDINO_AGENT_RUNTIME=deterministic` exists only for offline regression
 tests. It should not be used for real research runs.
 
-If a model call returns HTTP 429, the signed-in Ollama account has exhausted its
-current usage allowance. Model registration can still appear healthy in
-`/model-runtime`; the failed invocation is stored in `/agent-runs` with the
-provider error instead of generating fallback research content.
+If a local model call fails or Ollama is stopped, the failure is stored in
+`/agent-runs` with the provider error instead of generating fallback research
+content. The runtime never contacts a remote Ollama endpoint.
 
 ## Structured Research Ledger
 

@@ -339,4 +339,9 @@ Continue M5 and M9:
 - `[x]` Disable remote Ollama endpoints and API-key authentication in the runtime.
 - `[x]` Assign all deputies to the local `qwen3.5:latest` model as the first local baseline.
 - `[x]` Replace the Cloud setup script with `scripts/setup-ollama-local.ps1`.
-- `[ ]` Pull `qwen3.5:latest` on this machine; no usable local model is installed yet.
+- `[x]` Pull `qwen3.5:latest` on this machine and verify a local JSON chat response.
+
+The current execution order is maintained in
+[docs/implementation-roadmap.md](./implementation-roadmap.md). M1 is the next
+milestone: one real user-owned paper must complete the local Reader -> Debate
+-> human Leader review -> Library path before broader feature expansion.
