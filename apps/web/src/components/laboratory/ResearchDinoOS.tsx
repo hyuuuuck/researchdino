@@ -361,9 +361,9 @@ function defaultControlSettings(sourceConnectors: PaperSourceConnector[]): Contr
     autonomyMode: "assisted",
     autoApproveLowRisk: false,
     maxParallelTasks: 6,
-    localInference: false,
-    reasoningModel: "nemotron-3-super:cloud",
-    readingModel: "qwen3.5:cloud",
+    localInference: true,
+    reasoningModel: "qwen3.5:latest",
+    readingModel: "qwen3.5:latest",
   };
 }
 
@@ -2400,11 +2400,11 @@ function SettingsScreen({
           </label>
         </article>
         <article className="rdos-panel">
-          <span className="rdos-eyebrow">Ollama Cloud Runtime</span>
+          <span className="rdos-eyebrow">Local Ollama Runtime</span>
           <div className="rdos-runtime-status">
             <StatRow label="Connection" value={modelRuntime.configured ? "Models registered" : modelRuntime.reachable ? "Models missing" : "Offline"} />
             <StatRow label="Endpoint" value={modelRuntime.baseUrl} />
-            <StatRow label="Authentication" value={modelRuntime.authMode === "ollama_signin" ? "Ollama sign-in" : modelRuntime.apiKeyConfigured ? "API key set" : "API key missing"} />
+            <StatRow label="Authentication" value={modelRuntime.authMode === "none" ? "Not required" : modelRuntime.apiKeyConfigured ? "API key set" : "API key missing"} />
             <StatRow label="Runtime" value={modelRuntime.mode} />
           </div>
           <div className="rdos-agent-model-list rdos-runtime-models">

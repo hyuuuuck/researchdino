@@ -199,7 +199,7 @@ def run_reader(card_id: str, run_id: str | None = None) -> dict[str, Any]:
     card["details"].update(
         {
             "Reader status": "parsed_text" if parsed else "metadata_only",
-            "Reader runtime": "ollama_cloud" if reader_output else "deterministic_test_mode",
+            "Reader runtime": "ollama_local" if reader_output else "deterministic_test_mode",
             "Reader model": model_for_role("reader") if reader_output else "none",
             "Abstract": reader_output["abstract"] if reader_output else "not extracted",
             "Methods": reader_output["methods"] if reader_output else [],
@@ -408,7 +408,7 @@ def run_debate(card_id: str, run_id: str | None = None) -> dict[str, Any]:
             "research_strategy_outputs": research_strategy_outputs,
             "experiment_strategy_outputs": experiment_strategy_outputs,
             "decision_criteria": decision_criteria,
-            "model_runtime": "ollama_cloud" if orchestration else "deterministic_test_mode",
+            "model_runtime": "ollama_local" if orchestration else "deterministic_test_mode",
             "deputy_models": [
                 f"{role}: {model_for_role(role)}"
                 for role in ["reader", "critic", "librarian", "strategist", "experiment", "coordinator", "leader"]
@@ -543,7 +543,7 @@ def design_experiment(card_id: str, run_id: str | None = None) -> dict[str, Any]
         experiment_card["summary"] = model_plan["objective"]
         experiment_card["details"].update(
             {
-                "Model runtime": "ollama_cloud",
+                "Model runtime": "ollama_local",
                 "Model": model_for_role("experiment"),
                 "Objective": model_plan["objective"],
                 "Controls": model_plan["controls"],
@@ -619,7 +619,7 @@ def draft_manuscript(card_id: str, run_id: str | None = None) -> dict[str, Any]:
         "summary": "Ollama Writer drafted an evidence-aware manuscript outline from approved knowledge." if writer_output else "Writer drafted an evidence-aware manuscript outline from the selected card.",
         "details": {
             "Source card": card["id"],
-            "Model runtime": "ollama_cloud" if writer_output else "deterministic_test_mode",
+            "Model runtime": "ollama_local" if writer_output else "deterministic_test_mode",
             "Model": model_for_role("writer") if writer_output else "none",
             "Outline sections": writer_output["outline_sections"] if writer_output else ["Abstract", "Introduction", "Evidence synthesis", "Limitations"],
             "Citation requirements": writer_output["citation_requirements"] if writer_output else ["Citations required for every scientific claim"],

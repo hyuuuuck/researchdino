@@ -59,17 +59,15 @@ The MVP exposes `POST /agent-actions` for local deterministic workflow actions:
 - `draft_manuscript`: create a Writing Studio outline from an approved source card.
 - `run_research_pipeline`: advance a Paper or Debate Card through Reader/Debate/Strategy/Experiment handoffs into a Leader review packet. It stops before Library storage; Leader approval is still required.
 
-The default runtime is now Ollama Cloud through the local Ollama API. It does
+The default runtime is now local Ollama through the local Ollama API. It does
 not silently fall back to template output when Ollama is unavailable. Every
 model call is persisted as an `AgentRun` and every validated response as an
 `AgentMessage`.
 
 Default deputy placement:
 
-- Search and Librarian: `gpt-oss:20b-cloud`
-- Reader, Experiment, and Writer: `qwen3.5:cloud`
-- Critic and Leader pre-review: `gpt-oss:120b-cloud`
-- Strategist and Coordinator: `nemotron-3-super:cloud`
+- All deputies currently use the local `qwen3.5:latest` model.
+- Each role has its own environment variable so roles can be split across installed local models later.
 
 The Debate action executes these handoffs:
 
@@ -79,19 +77,16 @@ The Debate action executes these handoffs:
 4. Leader deputy performs a non-binding pre-review.
 5. The human Leader remains the only approval and Library-storage authority.
 
-### Ollama Cloud Setup
+### Local Ollama Setup
 
-Recommended local-proxy setup on Windows:
+Install Ollama locally, then pull the configured model on Windows:
 
 ```powershell
-ollama signin
-powershell -ExecutionPolicy Bypass -File scripts\setup-ollama-cloud.ps1
+powershell -ExecutionPolicy Bypass -File scripts\setup-ollama-local.ps1
 ```
 
-The app then calls `http://127.0.0.1:11434/api/chat`; Ollama handles Cloud
-authentication. To use `https://ollama.com/api` directly instead, set
-`OLLAMA_BASE_URL=https://ollama.com`, set `OLLAMA_API_KEY` outside the repo,
-and override role model names if the direct API catalog uses different tags.
+The app calls only `http://127.0.0.1:11434/api/chat`. Remote Ollama endpoints
+and API keys are disabled by the runtime.
 
 Runtime inspection endpoints:
 

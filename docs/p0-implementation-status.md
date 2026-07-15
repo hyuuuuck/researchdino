@@ -10,11 +10,11 @@ Date: 2026-07-14
 - `ResearchRun` records persist status, phase, errors, checkpoints, and resume counts.
 - Background research runs and phase resume are available through the API.
 - Crossref and OpenAlex DOI metadata-only adapters are available through `GET /metadata/lookup`.
-- Ollama Cloud is the configured runtime with four registered Cloud tags and no missing model tags.
+- Local Ollama is the configured runtime. All deputies currently share `qwen3.5:latest` so the first working path needs only one local model.
 
 ## Important Runtime Boundary
 
-This configuration does not download or require a local research model. Agents use the signed-in local Ollama proxy to reach Ollama Cloud. The account allowance still controls live inference; an exhausted quota is surfaced as a provider error and never replaced with fabricated research output.
+This configuration does not use remote model endpoints or API keys. Agents call only the local Ollama API at `http://127.0.0.1:11434`. If the local model is missing or Ollama is stopped, the runtime reports that state and never replaces it with fabricated research output.
 
 ## Still Required Before Real Research Operations
 

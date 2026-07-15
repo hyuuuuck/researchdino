@@ -137,7 +137,7 @@ class OllamaClient:
         timeout_seconds: float | None = None,
     ) -> None:
         self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL") or os.getenv("OLLAMA_HOST") or "http://127.0.0.1:11434").rstrip("/")
-        self.api_key = api_key if api_key is not None else os.getenv("OLLAMA_API_KEY", "").strip()
+        self.api_key = ""
         self.timeout_seconds = timeout_seconds or float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "240"))
 
     def api_url(self, path: str) -> str:
@@ -151,11 +151,11 @@ class OllamaClient:
             "Content-Type": "application/json",
             "User-Agent": "ResearchDino-Lab/0.2",
         }
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
 
     def request_json(self, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        if not self.base_url.startswith(("http://127.0.0.1", "http://localhost")):
+            raise OllamaRuntimeError("ResearchDino is configured for local Ollama only; remote endpoints are disabled.")
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None
         request = Request(
             self.api_url(path),
@@ -239,16 +239,15 @@ class OllamaClient:
             reachable = False
             error = str(runtime_error)
 
-        direct_cloud = self.base_url.startswith("https://ollama.com")
         missing_models = [model for model in required_models if model not in available_models]
         return {
             "mode": agent_runtime_mode(),
-            "provider": "ollama_cloud",
+            "provider": "ollama_local",
             "baseUrl": self.base_url,
-            "authMode": "api_key" if direct_cloud else "ollama_signin",
-            "apiKeyConfigured": bool(self.api_key),
+            "authMode": "none",
+            "apiKeyConfigured": False,
             "reachable": reachable,
-            "configured": reachable and (not direct_cloud or bool(self.api_key)) and not missing_models,
+            "configured": reachable and not missing_models and self.base_url.startswith(("http://127.0.0.1", "http://localhost")),
             "roleModels": assignments,
             "availableModels": available_models,
             "missingModels": missing_models,

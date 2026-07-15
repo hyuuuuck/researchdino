@@ -266,9 +266,9 @@ export function getDemoResearchLabState(): ResearchLabState {
     researchRuns: [],
     modelRuntime: {
       mode: "demo",
-      provider: "ollama_cloud",
+      provider: "ollama_local",
       baseUrl: "http://127.0.0.1:11434",
-      authMode: "ollama_signin",
+      authMode: "none",
       apiKeyConfigured: false,
       reachable: false,
       configured: false,

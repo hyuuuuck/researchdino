@@ -4,15 +4,15 @@ import os
 
 
 DEFAULT_ROLE_MODELS = {
-    "search": "gpt-oss:20b-cloud",
-    "reader": "qwen3.5:cloud",
-    "critic": "gpt-oss:120b-cloud",
-    "librarian": "gpt-oss:20b-cloud",
-    "strategist": "nemotron-3-super:cloud",
-    "experiment": "qwen3.5:cloud",
-    "coordinator": "nemotron-3-super:cloud",
-    "leader": "gpt-oss:120b-cloud",
-    "writer": "qwen3.5:cloud",
+    "search": "qwen3.5:latest",
+    "reader": "qwen3.5:latest",
+    "critic": "qwen3.5:latest",
+    "librarian": "qwen3.5:latest",
+    "strategist": "qwen3.5:latest",
+    "experiment": "qwen3.5:latest",
+    "coordinator": "qwen3.5:latest",
+    "leader": "qwen3.5:latest",
+    "writer": "qwen3.5:latest",
 }
 
 ROLE_MODEL_ENV = {

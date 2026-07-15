@@ -328,7 +328,15 @@ The real-research readiness review and acceptance criteria are tracked in
 
 Continue M5 and M9:
 
-1. Restore Ollama Cloud usage by allowance reset, plan upgrade, or added usage.
-2. Run one user-owned paper through the live Reader and six-deputy Debate path, then inspect every `AgentRun` and evidence trace.
-3. Tune role prompts and model choices from real scientific output quality and account usage.
-4. Add DOI metadata enrichment through Crossref/OpenAlex while keeping publisher full text license-gated.
+1. Pull the configured local Ollama model and run one user-owned paper through the live Reader and six-deputy Debate path.
+2. Inspect every `AgentRun`, checkpoint, and evidence trace from that local run.
+3. Tune role prompts and model choices from real scientific output quality and local hardware limits.
+4. Add publisher full-text connectors only where the user's permitted account or institution allows it.
+
+## Current Runtime Correction (2026-07-15)
+
+- `[x]` Remove Cloud model tags from the application defaults and demo state.
+- `[x]` Disable remote Ollama endpoints and API-key authentication in the runtime.
+- `[x]` Assign all deputies to the local `qwen3.5:latest` model as the first local baseline.
+- `[x]` Replace the Cloud setup script with `scripts/setup-ollama-local.ps1`.
+- `[ ]` Pull `qwen3.5:latest` on this machine; no usable local model is installed yet.

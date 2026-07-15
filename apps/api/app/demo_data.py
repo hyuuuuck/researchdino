@@ -21,11 +21,11 @@ def ollama_deputy(deputy, label, responsibility, mode="primary"):
         deputy,
         label,
         responsibility,
-        "ollama",
+        "ollama_local",
         model,
-        f"ollama-cloud:{model}",
+        f"ollama-local:{model}",
         mode=mode,
-        local=False,
+        local=True,
     )
 
 

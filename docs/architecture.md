@@ -40,23 +40,23 @@ Writing Studio
 The implemented model handoff is card-scoped by `projectId` and `labId`:
 
 ```text
-Reader (qwen3.5:cloud)
+Reader (qwen3.5:latest, local)
         |
-        +--> Critic (gpt-oss:120b-cloud) --------+
+        +--> Critic (qwen3.5:latest, local) --------+
         |                                         |
-        +--> Librarian (gpt-oss:20b-cloud) -------+--> shared round-one packet
+        +--> Librarian (qwen3.5:latest, local) -------+--> shared round-one packet
                                                    |
                          +-------------------------+------------------------+
                          |                                                  |
                          v                                                  v
-              Strategist (nemotron-3-super:cloud)              Experiment (qwen3.5:cloud)
+              Strategist (qwen3.5:latest, local)              Experiment (qwen3.5:latest, local)
                          |                                                  |
                          +-------------------------+------------------------+
                                                    v
-                                  Coordinator (nemotron-3-super:cloud)
+                                  Coordinator (qwen3.5:latest, local)
                                                    |
                                                    v
-                                  Leader pre-review (gpt-oss:120b-cloud)
+                                  Leader pre-review (qwen3.5:latest, local)
                                                    |
                                                    v
                                            Human Leader gate
