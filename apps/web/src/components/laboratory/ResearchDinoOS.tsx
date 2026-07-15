@@ -1794,8 +1794,10 @@ function AgentsScreen({ rooms, cards, runs, researchRuns }: { rooms: LaboratoryR
   );
 }
 
-function detailValueText(value: WorkflowCardData["details"][string]) {
-  return Array.isArray(value) ? value.join(", ") : String(value);
+function detailValueText(value: WorkflowCardData["details"][string]): string {
+  if (Array.isArray(value)) return value.map(detailValueText).join(", ");
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return value === undefined || value === null ? "" : String(value);
 }
 
 function detailSourceValue(card: WorkflowCardData | undefined, key: string) {
@@ -1926,10 +1928,10 @@ function LibraryScreen({
                         <dd>
                           {Array.isArray(value) ? (
                             <ul>
-                              {value.map((item) => <li key={item}>{item}</li>)}
+                              {value.map((item, index) => <li key={`${key}-${index}`}>{detailValueText(item)}</li>)}
                             </ul>
                           ) : (
-                            value
+                            detailValueText(value)
                           )}
                         </dd>
                       </div>
@@ -1948,7 +1950,7 @@ function LibraryScreen({
                     {Object.entries(sourceCard.details).slice(0, 6).map(([key, value]) => (
                       <div key={key}>
                         <dt>{key}</dt>
-                        <dd>{Array.isArray(value) ? value.join(", ") : value}</dd>
+                        <dd>{detailValueText(value)}</dd>
                       </div>
                     ))}
                   </dl>

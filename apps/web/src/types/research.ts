@@ -161,7 +161,7 @@ export interface WorkflowCardData {
   evidenceCount: number;
   approvalStatus: ApprovalStatus;
   summary: string;
-  details: Record<string, string | number | string[]>;
+  details: Record<string, unknown>;
 }
 
 export interface AgentLogEntry {

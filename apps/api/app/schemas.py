@@ -196,7 +196,7 @@ class WorkflowCard(BaseModel):
     evidenceCount: int
     approvalStatus: ApprovalStatus
     summary: str
-    details: dict[str, str | int | list[str]]
+    details: dict[str, Any]
 
 
 class WorkflowCardCreateRequest(BaseModel):
@@ -206,7 +206,7 @@ class WorkflowCardCreateRequest(BaseModel):
     type: CardType = "review"
     currentRoom: RoomId = "coordinator"
     summary: str = ""
-    details: dict[str, str | int | list[str]] = Field(default_factory=dict)
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class WorkflowCardPatchRequest(BaseModel):
@@ -221,7 +221,7 @@ class WorkflowCardPatchRequest(BaseModel):
     requiresUserReview: bool | None = None
     approvalStatus: ApprovalStatus | None = None
     summary: str | None = None
-    details: dict[str, str | int | list[str]] | None = None
+    details: dict[str, Any] | None = None
 
 
 class AgentLogEntry(BaseModel):

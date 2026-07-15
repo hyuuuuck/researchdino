@@ -6,7 +6,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, get_origin
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
@@ -184,6 +184,8 @@ class OllamaClient:
                 "model": model,
                 "messages": messages,
                 "stream": False,
+                "think": False,
+                "format": "json",
                 "options": {"temperature": 0.15},
             },
         )
@@ -205,6 +207,8 @@ class OllamaClient:
                     "model": model,
                     "messages": repair_messages,
                     "stream": False,
+                    "think": False,
+                    "format": "json",
                     "options": {"temperature": 0},
                 },
             )
@@ -219,6 +223,58 @@ class OllamaClient:
             "totalDuration": response.get("total_duration"),
         }
         return OllamaCallResult(model=model, content=content, metrics=metrics)
+
+    def repair_json(
+        self,
+        role: str,
+        messages: list[dict[str, str]],
+        content: dict[str, Any],
+        output_model: type[BaseModel],
+        validation_error: str,
+    ) -> OllamaCallResult:
+        model = model_for_role(role)
+        repair_messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You repair JSON for a scientific research workflow. "
+                    "Return exactly one complete JSON object and no markdown, explanation, task echo, or schema wrapper."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "The candidate JSON below failed validation. Preserve useful values, add every missing required field, "
+                    "and return only the corrected object. Do not return the original prompt.\n"
+                    f"Candidate JSON:\n{json.dumps(content, ensure_ascii=False)}\n"
+                    f"Validation error:\n{validation_error}\n"
+                    f"Required output shape:\n{json.dumps(compact_output_contract(output_model), ensure_ascii=False)}\n"
+                    "Every array item must be a plain string. Do not add extra keys."
+                ),
+            },
+        ]
+        response = self.request_json(
+            "/chat",
+            {
+                "model": model,
+                "messages": repair_messages,
+                "stream": False,
+                "think": False,
+                "format": "json",
+                "options": {"temperature": 0},
+            },
+        )
+        raw_content = str(response.get("message", {}).get("content", "")).strip()
+        return OllamaCallResult(
+            model=model,
+            content=parse_json_object(raw_content),
+            metrics={
+                "doneReason": response.get("done_reason"),
+                "promptEvalCount": response.get("prompt_eval_count"),
+                "evalCount": response.get("eval_count"),
+                "totalDuration": response.get("total_duration"),
+            },
+        )
 
     def status(self) -> dict[str, Any]:
         assignments = role_model_assignments()
@@ -312,7 +368,11 @@ def execute_role(
         try:
             validated = output_model.model_validate(response.content).model_dump()
         except ValidationError as error:
-            raise OllamaRuntimeError(f"{role} returned JSON that failed schema validation: {error}") from error
+            try:
+                response = runtime_client.repair_json(role, messages, response.content, output_model, str(error))
+                validated = output_model.model_validate(response.content).model_dump()
+            except (OllamaRuntimeError, ValidationError) as repair_error:
+                raise OllamaRuntimeError(f"{role} returned JSON that failed schema validation: {repair_error}") from repair_error
         record.update(
             {
                 "model": response.model,
@@ -379,6 +439,13 @@ def json_context(value: Any, max_chars: int = 24000) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2)[:max_chars]
 
 
+def compact_output_contract(output_model: type[BaseModel]) -> dict[str, Any]:
+    contract: dict[str, Any] = {}
+    for name, field in output_model.model_fields.items():
+        contract[name] = ["string"] if get_origin(field.annotation) is list else "string"
+    return contract
+
+
 def system_prompt(role: str) -> str:
     return (
         f"You are the {role} deputy in ResearchDino Lab. Work as a rigorous scientific research agent. "
@@ -392,13 +459,10 @@ def run_reader_deputy(
     text_record: dict[str, Any],
     client: OllamaClient | None = None,
 ) -> dict[str, Any]:
-    max_chars = int(os.getenv("OLLAMA_READER_MAX_CHARS", "120000"))
+    max_chars = int(os.getenv("OLLAMA_READER_MAX_CHARS", "12000"))
     source_text = str(text_record.get("text", ""))[:max_chars]
     prompt = {
-        "paper_title": card.get("title"),
-        "paper_metadata": card.get("details", {}),
-        "source_text": source_text,
-        "task": "Extract a conservative scientific summary, methods, results, limitations, claims, and verbatim evidence spans.",
+        "task": "Extract a conservative scientific summary, methods, results, limitations, claims, and verbatim evidence spans from the supplied paper text. Do not use tools and do not say that a data provider is missing. The supplied source text is the only source you should use.",
         "required_json": {
             "summary": "string",
             "abstract": "string",
@@ -406,8 +470,11 @@ def run_reader_deputy(
             "results": ["string"],
             "limitations": ["string"],
             "claims": ["string"],
-            "evidence": [{"excerpt": "verbatim string", "interpretation": "string", "strength": "strong|moderate|weak|unsupported"}],
+            "evidence": [{"excerpt": "verbatim string from source_text", "interpretation": "string", "strength": "strong|moderate|weak|unsupported"}],
         },
+        "paper_title": card.get("title"),
+        "paper_metadata": card.get("details", {}),
+        "source_text": source_text,
     }
     return execute_role(
         "reader",

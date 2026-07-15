@@ -22,15 +22,20 @@ interface DetailPanelProps {
 
 function getDetailText(card: WorkflowCardData, key: string, fallback = "Pending") {
   const value = card.details[key];
-  if (Array.isArray(value)) return value.join(", ");
-  return value === undefined ? fallback : String(value);
+  return value === undefined ? fallback : detailValueText(value);
 }
 
 function getDetailList(card: WorkflowCardData, key: string) {
   const value = card.details[key];
-  if (Array.isArray(value)) return value;
+  if (Array.isArray(value)) return value.map(detailValueText);
   if (value === undefined) return [];
-  return [String(value)];
+  return [detailValueText(value)];
+}
+
+function detailValueText(value: unknown): string {
+  if (Array.isArray(value)) return value.map(detailValueText).join(", ");
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return value === undefined || value === null ? "" : String(value);
 }
 
 function isDebateCard(card: WorkflowCardData) {
@@ -313,7 +318,7 @@ export function DetailPanel({ selection, rooms, cards, dataMode, onSelectCard, o
             {Object.entries(card.details).map(([key, value]) => (
               <div key={key}>
                 <span>{key}</span>
-                <strong>{Array.isArray(value) ? value.join(", ") : value}</strong>
+                <strong>{detailValueText(value)}</strong>
               </div>
             ))}
           </div>
