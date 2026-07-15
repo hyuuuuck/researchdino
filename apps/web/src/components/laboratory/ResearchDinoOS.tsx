@@ -10,6 +10,7 @@ import {
   runAgentAction,
   scanIngestFolder,
   submitLeaderDecision,
+  updateResearchProject,
   updateWorkflowCard,
   type AgentActionValue,
   type AgentRunRecord,
@@ -338,7 +339,7 @@ function currentDisplayTime() {
 }
 
 function progressForStatus(status: WorkflowStatus) {
-  if (status === "queued" || status === "idle" || status === "waiting_for_claim") return 18;
+  if (status === "queued" || status === "idle" || status === "paused" || status === "waiting_for_claim") return 18;
   if (status === "running") return 48;
   if (status === "debating") return 62;
   if (status === "waiting_for_user" || status === "waiting_for_leader_review" || status === "needs_more_evidence") return 82;
@@ -722,7 +723,7 @@ export function ResearchDinoOS() {
         setActionMessage("Folder was registered, but it does not exist on this machine.");
         return;
       }
-      const result = await scanIngestFolder();
+      const result = await scanIngestFolder(activeProject?.id ?? defaultProjectId, activeLab?.id);
       setIngestResult(result);
       await refreshState();
       setActionMessage(
@@ -815,6 +816,25 @@ export function ResearchDinoOS() {
         void persistLabPatches([{ id: targetLabId, patch: { projectId: project.id } }]);
       }
       setActionMessage(`Project created: ${title}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setActionMessage(message);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  async function handleUpdateProjectStatus(projectId: string, status: ResearchProjectData["status"]) {
+    setBusyAction(`project-status:${projectId}`);
+    setActionMessage("");
+    try {
+      if (dataMode === "api") {
+        await updateResearchProject(projectId, { status });
+        await refreshState();
+      } else {
+        setProjects((current) => current.map((project) => project.id === projectId ? { ...project, status } : project));
+      }
+      setActionMessage(`Project ${status === "paused" ? "paused" : status === "active" ? "resumed" : "updated"}.`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       setActionMessage(message);
@@ -1042,6 +1062,7 @@ export function ResearchDinoOS() {
                 }}
                 onOpenMap={() => setScreen("map")}
                 onCreateProject={handleCreateProject}
+                onUpdateProjectStatus={handleUpdateProjectStatus}
               />
             )}
             {screen === "tasks" && (
@@ -2045,6 +2066,7 @@ function ProjectsScreen({
   onSelectProject,
   onOpenMap,
   onCreateProject,
+  onUpdateProjectStatus,
 }: {
   projects: ResearchProjectData[];
   cards: WorkflowCardData[];
@@ -2053,6 +2075,7 @@ function ProjectsScreen({
   onSelectProject: (projectId: string) => void;
   onOpenMap: () => void;
   onCreateProject: (input: CreateResearchProjectInput) => void;
+  onUpdateProjectStatus: (projectId: string, status: ResearchProjectData["status"]) => void;
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
@@ -2115,7 +2138,19 @@ function ProjectsScreen({
             <b>{activeCards.filter((card) => completeStatuses.has(card.status)).length} Outputs</b>
           </div>
         </div>
-        <button type="button" onClick={onOpenMap}>Open Lab Map</button>
+        <div className="rdos-feature-actions">
+          <button type="button" onClick={onOpenMap}>Open Lab Map</button>
+          {activeProject && activeProject.status !== "completed" && (
+            <button
+              className="rdos-secondary-action"
+              type="button"
+              onClick={() => onUpdateProjectStatus(activeProject.id, activeProject.status === "paused" ? "active" : "paused")}
+              disabled={busy}
+            >
+              {activeProject.status === "paused" ? "Resume Project" : "Pause Project"}
+            </button>
+          )}
+        </div>
       </article>
       <div className="rdos-project-grid">
         {projects.map((project) => {

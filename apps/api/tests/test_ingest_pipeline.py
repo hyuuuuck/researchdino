@@ -30,6 +30,22 @@ class LocalPdfIngestTests(unittest.TestCase):
         self.create_pdf(self.pdf_path)
         storage.DB_PATH = self.root / "researchdino-test.sqlite3"
         storage.init_db()
+        for lab_id in ("lab-beta", "lab-gamma"):
+            storage.put_json(
+                "lab_instances",
+                lab_id,
+                {
+                    "id": lab_id,
+                    "name": lab_id,
+                    "label": "Test lab",
+                    "projectId": "project-layered-materials",
+                    "mode": "full",
+                    "status": "idle",
+                    "summary": "Scoped ingest test lab",
+                    "enabled": True,
+                    "createdAt": "2026-07-15T00:00:00",
+                },
+            )
 
     def tearDown(self) -> None:
         if self.original_runtime is None:

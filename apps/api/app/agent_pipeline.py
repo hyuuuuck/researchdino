@@ -40,8 +40,25 @@ def card_lab_id(card: dict[str, Any]) -> str | None:
     return str(lab_id) if lab_id else None
 
 
+def ensure_lab_can_run(card: dict[str, Any]) -> None:
+    project = get_json("projects", card_project_id(card))
+    if project and project.get("status") == "paused":
+        raise PipelineError(f"Project {card_project_id(card)} is paused; resume it before running this card")
+    lab_id = card_lab_id(card)
+    if not lab_id:
+        return
+    lab = get_json("lab_instances", lab_id)
+    if lab is None:
+        raise PipelineError(f"Lab {lab_id} is missing for card {card['id']}")
+    if not lab.get("enabled", True):
+        raise PipelineError(f"Lab {lab_id} is disabled; enable it before running this card")
+    if lab.get("status") == "paused":
+        raise PipelineError(f"Lab {lab_id} is paused; resume that Lab before running this card")
+
+
 def run_agent_action(card_id: str, action: str, run_id: str | None = None) -> dict[str, Any]:
     card = require_card(card_id)
+    ensure_lab_can_run(card)
     run = get_json("research_runs", run_id) if run_id else None
     if run is None:
         run = create_research_run(card, action)

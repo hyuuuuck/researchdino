@@ -46,7 +46,7 @@ export function IngestPanel({ dataMode, onScanComplete }: IngestPanelProps) {
         return;
       }
 
-      const result = await scanIngestFolder();
+      const result = await scanIngestFolder("project-autophagy");
       setLastResult(result);
       setMessage(
         result.parserAvailable

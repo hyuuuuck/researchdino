@@ -26,8 +26,8 @@ finishes, changes scope, or reveals a blocker.
 - `[x]` M2: Workflow State Model
 - `[x]` M3: Local Backend MVP
 - `[x]` M4: Local PDF Ingest MVP
-- `[~]` M5: Reader Agent Pipeline
-- `[~]` M6: Debate + Leader Gate
+- `[x]` M5: Reader Agent Pipeline (local baseline)
+- `[!]` M6: Debate + Leader Gate (human decision pending)
 - `[ ]` M7: Library + Retrieval
 - `[ ]` M8: Strategy / Experiment / Writing Studio
 - `[~]` M9: External Metadata / Publisher Integration
@@ -208,58 +208,58 @@ Verification:
 - `npm.cmd run build`: passed after PDF Ingest panel integration.
 - Chrome headless desktop screenshot inspected at `1500x1200` after PDF Ingest panel pass.
 
-## P0 implementation checkpoint (2026-07-14)
+## P0 implementation checkpoint (2026-07-15)
 
 - `[x]` Evidence excerpt verification against stored PDF page text.
 - `[x]` Unverified evidence blocks claim/debate approval and remains visible for Leader review.
 - `[x]` Durable `ResearchRun` records with background execution, phase checkpoints, and resume.
 - `[x]` Crossref/OpenAlex DOI metadata-only adapters and `GET /metadata/lookup`.
-- `[x]` Ollama Cloud role model registration restored and verified with four Cloud tags.
-- `[!]` Live Ollama inference is still limited by the account weekly allowance; configuration health and live inference availability are tracked separately.
+- `[x]` Remote Ollama endpoints and API-key authentication are disabled.
+- `[x]` All deputies use the local `qwen3.5:latest` baseline.
+- `[x]` Local model reachability and missing-model health are exposed by `/model-runtime`.
 
 ## M5: Reader Agent Pipeline
 
-Status: In progress. Ollama Cloud Reader runtime is implemented and mock-verified; Cloud models are registered, but live inference is blocked by the account weekly usage limit.
+Status: Done for the local baseline; long-paper chunk synthesis remains.
 
 Goal: convert a parsed paper into structured, traceable reading outputs.
 
-- `[~]` Define Reader output JSON schema.
-- `[~]` Extract abstract, methods, results, limitations.
+- `[x]` Define Reader output JSON schema.
+- `[x]` Extract abstract, methods, results, limitations.
 - `[x]` Extract candidate claims through the local Reader action scaffold.
 - `[x]` Extract evidence candidates through the local Reader action scaffold.
 - `[x]` Mark metadata-only claims as unsupported and requiring review.
 - `[x]` Link extracted evidence back to PDF page and character offsets.
 - `[x]` Move Paper Cards from Reading Bench to Debate Room when ready.
 - `[x]` Log Reader Agent runs.
-- `[x]` Confirm first LLM provider: Ollama Cloud through the signed-in local Ollama proxy.
-- `[x]` Assign Ollama Cloud deputies across Search, Reader, Critic, Librarian, Leader, Coordinator, Strategist, Experiment, and Writer rooms.
-- `[x]` Replace placeholder model references with role-specific Ollama Cloud model tags.
+- `[x]` Confirm first LLM provider: local Ollama through `http://127.0.0.1:11434`.
+- `[x]` Assign all deputies to the local `qwen3.5:latest` baseline.
 - `[x]` Call the Reader deputy through Ollama `/api/chat` and validate its JSON response.
 - `[x]` Persist every model invocation as `AgentRun` and validated output as `AgentMessage`.
 - `[x]` Fail visibly when Ollama is unavailable instead of silently generating template research output.
 
 Verification:
 
-- `POST /agent-actions` with `run_reader` creates a Debate Room claim card from a Paper Card.
+- `POST /agent-actions` with `run_reader` created a Debate Room claim card from a real 27-page local PDF.
 - `npm.cmd run build` and `python -m compileall .\apps\api\app` passed after agent action scaffold additions.
 - Temporary SQLite smoke test passed for `run_reader`.
 - Mock Ollama test verified structured Reader output plus `AgentRun` / `AgentMessage` persistence.
-- Live Ollama proxy call reached `gpt-oss:20b-cloud` authentication and was rejected with HTTP 429 because the account weekly usage limit is exhausted.
+- Live local Reader run used `qwen3.5:latest` and persisted verified/unverified evidence separately.
 
 Open decisions:
 
-- `[!]` Wait for the Ollama weekly allowance reset, upgrade the plan, or add usage before a live research run. All four required Cloud model tags are registered locally.
+- `[ ]` Replace the current 12k-character source window with page-aware chunking and synthesis for long papers.
 
 ## M6: Debate + Leader Gate
 
-Status: In progress. Real Ollama deputy fan-out/fan-in is implemented and mock-verified; live Cloud execution is blocked by the account weekly usage limit.
+Status: Human Leader decision pending; local deputy fan-out/fan-in is live.
 
 Goal: review Reader outputs through agent discussion and human approval.
 
-- `[~]` Define Debate Session schema.
-- `[~]` Add Critic Agent output schema.
-- `[~]` Add Strategist Agent discussion output schema.
-- `[~]` Add Experiment Designer discussion output schema.
+- `[x]` Define Debate Session schema.
+- `[x]` Add Critic Agent output schema.
+- `[x]` Add Strategist Agent discussion output schema.
+- `[x]` Add Experiment Designer discussion output schema.
 - `[x]` Show unresolved issues in Debate Room card details.
 - `[x]` Send review items to Leader Office through `run_debate`.
 - `[x]` Store Leader decisions with reason and target object.
@@ -275,6 +275,7 @@ Verification:
 - Leader Review still controls Library storage through `POST /leader-decisions`.
 - Temporary SQLite smoke test passed for `run_reader` -> `run_debate`.
 - Mock orchestration test verified six model calls, cross-agent context handoff, completion records, and messages.
+- Real local run verified six deputy outputs plus Coordinator synthesis and Leader pre-review; the packet is waiting for human review.
 
 ## M7: Library + Retrieval
 
@@ -326,10 +327,10 @@ Goal: enrich local paper records using official and license-compliant sources.
 The real-research readiness review and acceptance criteria are tracked in
 [docs/research-readiness-report.md](./research-readiness-report.md).
 
-Continue M5 and M9:
+Continue M2 and M9:
 
-1. Pull the configured local Ollama model and run one user-owned paper through the live Reader and six-deputy Debate path.
-2. Inspect every `AgentRun`, checkpoint, and evidence trace from that local run.
+1. Complete the human Leader decision for the real layered-materials packet.
+2. Enforce project/lab scope across new records and prove independent Lab pause behavior.
 3. Tune role prompts and model choices from real scientific output quality and local hardware limits.
 4. Add publisher full-text connectors only where the user's permitted account or institution allows it.
 
@@ -342,6 +343,6 @@ Continue M5 and M9:
 - `[x]` Pull `qwen3.5:latest` on this machine and verify a local JSON chat response.
 
 The current execution order is maintained in
-[docs/implementation-roadmap.md](./implementation-roadmap.md). M1 is the next
-milestone: one real user-owned paper must complete the local Reader -> Debate
--> human Leader review -> Library path before broader feature expansion.
+[docs/implementation-roadmap.md](./implementation-roadmap.md). M1 is waiting
+for the human Leader decision, while M2 project/lab scope work is underway in
+parallel.

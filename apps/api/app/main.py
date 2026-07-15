@@ -40,6 +40,7 @@ from .schemas import (
     ResearchClaim,
     ResearchProject,
     ResearchProjectCreateRequest,
+    ResearchProjectPatchRequest,
     ResearchRunRecord,
     WorkflowCard,
     WorkflowCardCreateRequest,
@@ -83,6 +84,41 @@ def current_clock_time() -> str:
 
 def current_iso_time() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+def require_project(project_id: str) -> dict:
+    project = get_json("projects", project_id)
+    if project is None:
+        raise HTTPException(status_code=400, detail=f"Project {project_id} was not found")
+    return project
+
+
+def resolve_lab_id(project_id: str, lab_id: str | None) -> str:
+    require_project(project_id)
+    labs = list_json("lab_instances")
+    if lab_id:
+        lab = next((item for item in labs if item.get("id") == lab_id), None)
+        if lab is None:
+            raise HTTPException(status_code=400, detail=f"Lab {lab_id} was not found")
+        if lab.get("projectId") != project_id:
+            raise HTTPException(status_code=400, detail=f"Lab {lab_id} is assigned to another project")
+        return lab_id
+
+    candidate = next(
+        (
+            item
+            for item in labs
+            if item.get("projectId") == project_id and item.get("enabled") and item.get("status") != "paused"
+        ),
+        None,
+    )
+    if candidate is None:
+        raise HTTPException(status_code=400, detail=f"Project {project_id} has no active Lab; assign one before creating research data")
+    return str(candidate["id"])
+
+
+def ingest_scope_key(project_id: str, lab_id: str) -> str:
+    return f"{project_id}:{lab_id}"
 
 
 ROOM_AGENT_MAP = {
@@ -193,6 +229,21 @@ def create_project(request: ResearchProjectCreateRequest) -> ResearchProject:
     return ResearchProject(**project)
 
 
+@app.patch("/projects/{project_id}", response_model=ResearchProject)
+def patch_project(project_id: str, request: ResearchProjectPatchRequest) -> ResearchProject:
+    project = require_project(project_id)
+    update = request.model_dump(exclude_unset=True)
+    for key, value in update.items():
+        if value is not None:
+            if isinstance(value, str):
+                value = value.strip()
+            if key == "title" and not value:
+                raise HTTPException(status_code=400, detail="Project title is required")
+            project[key] = value
+    put_json("projects", project_id, project)
+    return ResearchProject(**project)
+
+
 @app.get("/lab-instances", response_model=list[LabInstance])
 def lab_instances() -> list[LabInstance]:
     return [LabInstance(**lab) for lab in list_json("lab_instances")]
@@ -205,6 +256,8 @@ def patch_lab_instance(lab_id: str, request: LabInstancePatchRequest) -> LabInst
         raise HTTPException(status_code=404, detail="Lab instance not found")
 
     update = request.model_dump(exclude_unset=True)
+    if request.projectId is not None:
+        require_project(request.projectId)
     for key, value in update.items():
         if value is not None:
             lab[key] = value
@@ -224,12 +277,13 @@ def create_card(request: WorkflowCardCreateRequest) -> WorkflowCard:
     if not title:
         raise HTTPException(status_code=400, detail="Card title is required")
 
+    lab_id = resolve_lab_id(request.projectId, request.labId)
     agent = ROOM_AGENT_MAP[request.currentRoom]
     card_id = f"task-{uuid4().hex[:12]}"
     card = {
         "id": card_id,
         "projectId": request.projectId,
-        "labId": request.labId,
+        "labId": lab_id,
         "title": title,
         "type": request.type,
         "currentRoom": request.currentRoom,
@@ -411,22 +465,31 @@ def resume_research_run(run_id: str) -> AgentActionResult:
 
 @app.post("/ingest/folder", response_model=IngestFolderRecord)
 def register_ingest_folder(request: IngestFolderRequest) -> IngestFolderRecord:
+    lab_id = resolve_lab_id(request.projectId, request.labId)
     folder = Path(request.path).expanduser().resolve(strict=False)
     record = {
-        "id": "active",
+        "id": ingest_scope_key(request.projectId, lab_id),
         "projectId": request.projectId,
-        "labId": request.labId,
+        "labId": lab_id,
         "path": str(folder),
         "registeredAt": current_iso_time(),
         "exists": folder.is_dir(),
     }
-    put_json("ingest_folders", "active", record)
+    put_json("ingest_folders", record["id"], record)
     return IngestFolderRecord(**record)
 
 
 @app.get("/ingest/folder", response_model=IngestFolderRecord | None)
-def ingest_folder() -> IngestFolderRecord | None:
-    record = get_json("ingest_folders", "active")
+def ingest_folder(projectId: str | None = None, labId: str | None = None) -> IngestFolderRecord | None:
+    if projectId is None and labId is None:
+        records = list_json("ingest_folders")
+        record = records[-1] if records else get_json("ingest_folders", "active")
+    else:
+        resolved_project_id = projectId or "project-autophagy"
+        resolved_lab_id = resolve_lab_id(resolved_project_id, labId)
+        record = get_json("ingest_folders", ingest_scope_key(resolved_project_id, resolved_lab_id))
+        if record is None:
+            record = get_json("ingest_folders", "active")
     if record is None:
         return None
     folder = Path(record["path"])
@@ -471,8 +534,16 @@ def metadata_lookup(doi: str, provider: str = "both") -> MetadataLookupResponse:
 
 
 @app.post("/ingest/scan", response_model=IngestScanResult)
-def scan_ingest_folder() -> IngestScanResult:
-    record = get_json("ingest_folders", "active")
+def scan_ingest_folder(projectId: str | None = None, labId: str | None = None) -> IngestScanResult:
+    if projectId is None and labId is None:
+        records = list_json("ingest_folders")
+        record = records[-1] if records else get_json("ingest_folders", "active")
+    else:
+        resolved_project_id = projectId or "project-autophagy"
+        resolved_lab_id = resolve_lab_id(resolved_project_id, labId)
+        record = get_json("ingest_folders", ingest_scope_key(resolved_project_id, resolved_lab_id))
+        if record is None:
+            record = get_json("ingest_folders", "active")
     if record is None:
         raise HTTPException(status_code=400, detail="No ingest folder is registered")
 

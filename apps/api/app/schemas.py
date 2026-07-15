@@ -52,6 +52,7 @@ WorkflowStatus = Literal[
     "waiting_for_user",
     "waiting_for_leader_review",
     "needs_more_evidence",
+    "paused",
     "approved",
     "rejected",
     "failed",
@@ -139,6 +140,16 @@ class ResearchProjectCreateRequest(BaseModel):
     sourceNote: str = "Source pending"
     lead: str = "ResearchDino Lab"
     status: Literal["active", "paused", "completed"] = "active"
+
+
+class ResearchProjectPatchRequest(BaseModel):
+    title: str | None = None
+    shortTitle: str | None = None
+    domain: str | None = None
+    description: str | None = None
+    sourceNote: str | None = None
+    lead: str | None = None
+    status: Literal["active", "paused", "completed"] | None = None
 
 
 class LabInstance(BaseModel):

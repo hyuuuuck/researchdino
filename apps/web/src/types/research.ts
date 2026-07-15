@@ -44,6 +44,7 @@ export type WorkflowStatus =
   | "waiting_for_user"
   | "waiting_for_leader_review"
   | "needs_more_evidence"
+  | "paused"
   | "approved"
   | "rejected"
   | "failed"

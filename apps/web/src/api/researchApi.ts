@@ -252,6 +252,16 @@ export interface CreateResearchProjectInput {
   status?: ResearchProjectData["status"];
 }
 
+export interface UpdateResearchProjectInput {
+  title?: string;
+  shortTitle?: string;
+  domain?: string;
+  description?: string;
+  sourceNote?: string;
+  lead?: string;
+  status?: ResearchProjectData["status"];
+}
+
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
 
 export function getDemoResearchLabState(): ResearchLabState {
@@ -371,12 +381,14 @@ export async function registerIngestFolder(path: string, projectId: string, labI
   });
 }
 
-export async function scanIngestFolder(): Promise<IngestScanResult> {
+export async function scanIngestFolder(projectId: string, labId?: string): Promise<IngestScanResult> {
   if (!configuredApiBaseUrl) {
     throw new Error("No API base URL is configured.");
   }
 
-  return fetchJson<IngestScanResult>("/ingest/scan", {
+  const query = new URLSearchParams({ projectId });
+  if (labId) query.set("labId", labId);
+  return fetchJson<IngestScanResult>(`/ingest/scan?${query.toString()}`, {
     method: "POST",
   });
 }
@@ -434,6 +446,17 @@ export async function createResearchProject(input: CreateResearchProjectInput): 
 
   return fetchJson<ResearchProjectData>("/projects", {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateResearchProject(projectId: string, input: UpdateResearchProjectInput): Promise<ResearchProjectData> {
+  if (!configuredApiBaseUrl) {
+    throw new Error("No API base URL is configured.");
+  }
+
+  return fetchJson<ResearchProjectData>(`/projects/${projectId}`, {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }

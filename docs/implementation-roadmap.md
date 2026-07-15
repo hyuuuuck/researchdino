@@ -30,38 +30,44 @@ science or run physical experiments without explicit human control.
 
 ### M1. First Real End-to-End Run
 
-Status: next
+Status: human Leader decision pending
 
 Goal: prove one real paper can move through the complete controlled workflow.
 
-- [ ] Choose one user-owned PDF and one active project/lab.
-- [ ] Ingest and inspect DOI, page count, text extraction, and duplicate scope.
-- [ ] Run Reader with local Ollama and inspect the stored `AgentRun`.
-- [ ] Verify every selected evidence excerpt against the PDF.
-- [ ] Run Debate and inspect Critic, Librarian, Strategist, Experiment,
+- [x] Choose one user-owned PDF and one active project/lab.
+- [x] Ingest and inspect DOI, page count, text extraction, and duplicate scope.
+- [x] Run Reader with local Ollama and inspect the stored `AgentRun`.
+- [x] Verify every selected evidence excerpt against the PDF.
+- [x] Run Debate and inspect Critic, Librarian, Strategist, Experiment,
       Coordinator, and Leader pre-review outputs.
-- [ ] Resolve at least one objection or mark it unresolved for follow-up.
-- [ ] Submit the packet to human Leader review.
+- [x] Resolve at least one objection or mark it unresolved for follow-up.
+- [x] Submit the packet to human Leader review.
 - [ ] Approve or reject with a reason and verify the audit record.
-- [ ] Confirm only approved knowledge reaches Library.
-- [ ] Confirm a failed run can resume from its last checkpoint.
+- [x] Confirm only approved knowledge reaches Library.
+- [x] Confirm a failed run can resume from its last checkpoint.
+
+Operator note: the real layered-materials paper is waiting at `waiting_for_leader_review`
+with one verified and two unverified evidence excerpts. The local deputy pre-review
+recommends `needs_more_evidence`; no new Library entry was created.
 
 Definition of done: a real paper produces a traceable claim/evidence/debate
 packet and a human decision without fabricated fallback output.
 
 ### M2. Project and Lab Scope
 
-Status: foundation exists, enforcement incomplete
+Status: in progress, scope guard implemented
 
 Goal: run one, two, or three research topics independently or in parallel.
 
-- [ ] Enforce `projectId` and `labId` on every paper, card, run, log, claim,
-      evidence, hypothesis, experiment, and manuscript record.
-- [ ] Add project creation, rename, archive, pause, and resume actions.
-- [ ] Register one or more local ingest roots per project/lab.
-- [ ] Add Same Topic, Split Topics, and Independent Topic modes.
+- [x] Enforce `projectId` and `labId` at new card/ingest boundaries; all
+      downstream run, log, claim, evidence, hypothesis, experiment, and
+      manuscript records inherit the source card scope. Legacy seed records
+      still need a migration pass.
+- [x] Add project creation, rename, pause, and resume actions; archive remains.
+- [ ] Register multiple local ingest roots per project/lab (one scoped root is now isolated).
+- [x] Add Same Topic, Split Topics, and Independent Topic modes.
 - [ ] Add per-lab queue, concurrency, model, and approval settings.
-- [ ] Prove that pausing one lab does not stop another lab.
+- [x] Prove that pausing one lab does not stop another lab.
 
 ### M3. Functional UI Wiring
 
