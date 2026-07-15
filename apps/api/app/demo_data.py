@@ -142,6 +142,9 @@ DEMO_LAB_INSTANCES = [
         "summary": "Runs the full Search -> Reader -> Debate -> Strategy -> Experiment -> Writer workflow for one research program.",
         "enabled": True,
         "createdAt": "2026-07-01",
+        "maxParallelTasks": 3,
+        "model": "qwen3.5:latest",
+        "approvalMode": "assisted",
     },
     {
         "id": "lab-beta",
@@ -153,6 +156,9 @@ DEMO_LAB_INSTANCES = [
         "summary": "Can run the same topic in parallel or hold a separate research program with its own task stream.",
         "enabled": True,
         "createdAt": "2026-07-01",
+        "maxParallelTasks": 3,
+        "model": "qwen3.5:latest",
+        "approvalMode": "assisted",
     },
     {
         "id": "lab-gamma",
@@ -164,6 +170,9 @@ DEMO_LAB_INSTANCES = [
         "summary": "Handles a third parallel topic, or can be assigned back to the active project for more throughput.",
         "enabled": True,
         "createdAt": "2026-07-01",
+        "maxParallelTasks": 3,
+        "model": "qwen3.5:latest",
+        "approvalMode": "assisted",
     },
 ]
 

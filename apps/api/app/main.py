@@ -46,7 +46,7 @@ from .schemas import (
     WorkflowCardCreateRequest,
     WorkflowCardPatchRequest,
 )
-from .storage import DB_PATH, delete_json, get_json, init_db, list_json, put_json
+from .storage import DB_PATH, delete_json, get_json, init_db, list_json, put_json, search_records
 
 
 DEMO_ROOM_MODEL_ASSIGNMENTS = {
@@ -285,6 +285,10 @@ def patch_lab_instance(lab_id: str, request: LabInstancePatchRequest) -> LabInst
         require_project(request.projectId)
     for key, value in update.items():
         if value is not None:
+            if key == "model":
+                value = value.strip()
+                if not value or value.startswith(("http://", "https://")) or "cloud" in value.lower():
+                    raise HTTPException(status_code=400, detail="Lab models must be local Ollama model names")
             lab[key] = value
 
     put_json("lab_instances", lab_id, lab)
@@ -410,8 +414,94 @@ def leader_decisions() -> list[LeaderDecisionRecord]:
 
 @app.get("/library", response_model=list[LibraryEntry])
 def library() -> list[LibraryEntry]:
-    entries = [LibraryEntry(**entry) for entry in list_json("library_entries")]
+    entries = [LibraryEntry(**enrich_library_entry(entry)) for entry in list_json("library_entries")]
     return list(reversed(entries))
+
+
+def enrich_library_entry(entry: dict) -> dict:
+    card = get_json("cards", entry.get("sourceCardId", "")) or {}
+    paper_id = entry.get("sourcePaperId") or card.get("sourcePaperId")
+    paper = get_json("paper_files", paper_id) if paper_id else None
+    claims = [claim for claim in list_json("claims") if claim.get("sourceCardId") == entry.get("sourceCardId")]
+    evidence = [item for item in list_json("evidence_items") if item.get("sourceCardId") == entry.get("sourceCardId")]
+    decision = get_json("leader_decisions", entry.get("decisionId", ""))
+    source_locators = [item.get("locator", {}) for item in evidence if item.get("locator")]
+    details = {
+        "sourcePaper": paper.get("fileName") if paper else None,
+        "authors": paper.get("authors", []) if paper else [],
+        "claims": [claim.get("text", "") for claim in claims],
+        "evidence": [item.get("excerpt", "") for item in evidence],
+        "decision": decision.get("decision") if decision else None,
+        "decisionReason": decision.get("reason", "") if decision else "",
+    }
+    return {
+        **entry,
+        "sourcePaperId": paper_id,
+        "doi": (paper or {}).get("doi") or card.get("details", {}).get("DOI"),
+        "sourceType": "local_pdf" if paper else card.get("details", {}).get("Source type", "workflow_card"),
+        "sourceLocators": source_locators,
+        "details": details,
+    }
+
+
+@app.get("/library/search", response_model=list[LibraryEntry])
+def search_library(
+    q: str = "",
+    projectId: str | None = None,
+    labId: str | None = None,
+) -> list[LibraryEntry]:
+    entries = list_json("library_entries")
+    if projectId is not None:
+        entries = [entry for entry in entries if entry.get("projectId") == projectId]
+    if labId is not None:
+        entries = [entry for entry in entries if entry.get("labId") == labId]
+    query = q.strip()
+    if query:
+        matched = search_records(
+            query,
+            record_types={"library_entries", "cards", "claims", "evidence_items", "paper_files", "paper_texts", "leader_decisions"},
+            project_id=projectId,
+            lab_id=labId,
+        )
+        matched_ids = {(row["record_type"], row["record_id"]) for row in matched}
+        source_card_ids = {
+            entry.get("sourceCardId")
+            for entry in entries
+            if ("library_entries", entry.get("id")) in matched_ids
+        }
+        source_card_ids.update(
+            row["record_id"] for row in matched if row["record_type"] == "cards"
+        )
+        source_card_ids.update(
+            record.get("sourceCardId")
+            for row in matched
+            for record in [get_json(row["record_type"], row["record_id"])]
+            if row["record_type"] in {"claims", "evidence_items"} and record
+        )
+        matched_paper_ids = {
+            row["record_id"]
+            for row in matched
+            if row["record_type"] == "paper_files"
+        }
+        matched_paper_ids.update(
+            record.get("paperFileId")
+            for row in matched
+            for record in [get_json(row["record_type"], row["record_id"])]
+            if row["record_type"] == "paper_texts" and record
+        )
+        source_card_ids.update(
+            card.get("id")
+            for card in list_json("cards")
+            if card.get("sourcePaperId") in matched_paper_ids
+        )
+        entries = [
+            entry
+            for entry in entries
+            if entry.get("sourceCardId") in source_card_ids
+            or entry.get("sourcePaperId") in matched_paper_ids
+            or ("library_entries", entry.get("id")) in matched_ids
+        ]
+    return [LibraryEntry(**enrich_library_entry(entry)) for entry in reversed(entries)]
 
 
 @app.get("/claims", response_model=list[ResearchClaim])

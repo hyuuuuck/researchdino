@@ -4,8 +4,10 @@ import type {
   AgentLogEntry,
   CardType,
   LabInstanceData,
+  LabApprovalMode,
   LabMode,
   LaboratoryRoomData,
+  LibraryEntryData,
   ResearchProjectData,
   RoomId,
   WorkflowCardData,
@@ -31,6 +33,7 @@ export interface ResearchLabState {
   debateSessions: DebateSessionRecord[];
   hypotheses: HypothesisRecord[];
   experimentPlans: ExperimentPlanRecord[];
+  library: LibraryEntryData[];
   mode: ResearchDataMode;
 }
 
@@ -240,6 +243,9 @@ export interface PatchLabInstanceInput {
   enabled?: boolean;
   label?: string;
   summary?: string;
+  maxParallelTasks?: number;
+  model?: string;
+  approvalMode?: LabApprovalMode;
 }
 
 export interface CreateResearchProjectInput {
@@ -292,6 +298,7 @@ export function getDemoResearchLabState(): ResearchLabState {
     debateSessions: [],
     hypotheses: [],
     experimentPlans: [],
+    library: [],
     mode: "demo",
   };
 }
@@ -319,7 +326,7 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     return getDemoResearchLabState();
   }
 
-  const [projects, labInstances, rooms, cards, logs, agentRuns, agentMessages, researchRuns, modelRuntime, claims, evidence, debateSessions, hypotheses, experimentPlans] = await Promise.all([
+  const [projects, labInstances, rooms, cards, logs, agentRuns, agentMessages, researchRuns, modelRuntime, claims, evidence, debateSessions, hypotheses, experimentPlans, library] = await Promise.all([
     fetchJson<ResearchProjectData[]>("/projects"),
     fetchJson<LabInstanceData[]>("/lab-instances"),
     fetchJson<LaboratoryRoomData[]>("/rooms"),
@@ -334,6 +341,7 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     fetchJson<DebateSessionRecord[]>("/debate-sessions"),
     fetchJson<HypothesisRecord[]>("/hypotheses"),
     fetchJson<ExperimentPlanRecord[]>("/experiment-plans"),
+    fetchJson<LibraryEntryData[]>("/library"),
   ]);
 
   return {
@@ -351,8 +359,17 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     debateSessions,
     hypotheses,
     experimentPlans,
+    library,
     mode: "api",
   };
+}
+
+export async function searchLibrary(query: string, projectId?: string, labId?: string): Promise<LibraryEntryData[]> {
+  if (!configuredApiBaseUrl) return [];
+  const params = new URLSearchParams({ q: query });
+  if (projectId) params.set("projectId", projectId);
+  if (labId) params.set("labId", labId);
+  return fetchJson<LibraryEntryData[]>(`/library/search?${params.toString()}`);
 }
 
 export async function submitLeaderDecision(

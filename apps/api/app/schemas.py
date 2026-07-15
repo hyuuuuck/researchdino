@@ -61,6 +61,7 @@ WorkflowStatus = Literal[
 ]
 
 LabMode = Literal["full", "literature", "debate", "strategy", "experiment", "writing"]
+LabApprovalMode = Literal["manual", "assisted", "auto"]
 
 ApprovalStatus = Literal[
     "draft",
@@ -162,6 +163,9 @@ class LabInstance(BaseModel):
     summary: str
     enabled: bool
     createdAt: str
+    maxParallelTasks: int = Field(default=3, ge=1, le=9)
+    model: str = "qwen3.5:latest"
+    approvalMode: LabApprovalMode = "assisted"
 
 
 class LabInstancePatchRequest(BaseModel):
@@ -171,6 +175,9 @@ class LabInstancePatchRequest(BaseModel):
     enabled: bool | None = None
     label: str | None = None
     summary: str | None = None
+    maxParallelTasks: int | None = Field(default=None, ge=1, le=9)
+    model: str | None = None
+    approvalMode: LabApprovalMode | None = None
 
 
 class LaboratoryRoom(BaseModel):
@@ -350,6 +357,11 @@ class LibraryEntry(BaseModel):
     decisionId: str
     evidenceCount: int
     storedAt: str
+    sourcePaperId: str | None = None
+    doi: str | None = None
+    sourceType: str = "workflow_card"
+    sourceLocators: list[dict[str, Any]] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class ResearchClaim(BaseModel):

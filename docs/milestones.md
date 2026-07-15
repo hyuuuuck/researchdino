@@ -28,7 +28,7 @@ finishes, changes scope, or reveals a blocker.
 - `[x]` M4: Local PDF Ingest MVP
 - `[x]` M5: Reader Agent Pipeline (local baseline)
 - `[!]` M6: Debate + Leader Gate (human decision pending)
-- `[ ]` M7: Library + Retrieval
+- `[~]` M7: Library + Retrieval
 - `[ ]` M8: Strategy / Experiment / Writing Studio
 - `[~]` M9: External Metadata / Publisher Integration
 
@@ -279,7 +279,7 @@ Verification:
 
 ## M7: Library + Retrieval
 
-Status: Not started.
+Status: FTS and source-locator retrieval implemented; versioning and external lineage remain.
 
 Goal: store only approved, traceable knowledge.
 
@@ -287,9 +287,9 @@ Goal: store only approved, traceable knowledge.
 - `[ ]` Store approved claims.
 - `[ ]` Store evidence with source paper and page/section trace.
 - `[ ]` Store citation context.
-- `[ ]` Add Library search.
-- `[ ]` Add paper-level view of approved knowledge.
-- `[ ]` Add claim-level evidence view.
+- `[x]` Add SQLite FTS Library search.
+- `[x]` Add paper-level metadata and source locator details to approved entries.
+- `[x]` Add claim-level evidence details to approved entries.
 - `[ ]` Prepare for vector search without requiring it on day one.
 
 ## M8: Strategy / Experiment / Writing Studio
@@ -327,17 +327,22 @@ Goal: enrich local paper records using official and license-compliant sources.
 The real-research readiness review and acceptance criteria are tracked in
 [docs/research-readiness-report.md](./research-readiness-report.md).
 
-Continue M2 and M9:
+Continue M1, M4, M5, M8, and M9:
 
 1. Complete the human Leader decision for the real layered-materials packet.
-2. Enforce project/lab scope across new records and prove independent Lab pause behavior.
-3. Tune role prompts and model choices from real scientific output quality and local hardware limits.
-4. Add publisher full-text connectors only where the user's permitted account or institution allows it.
+2. Add DOI/author/year/source filters and versioned paper lineage to Library retrieval.
+3. Add page-aware chunking and multi-round Reader/Critic debate persistence.
+4. Extend approved Library knowledge into hypothesis, experiment result, and manuscript loops.
+5. Add publisher full-text connectors only where the user's permitted account or institution allows it.
 
 ## Current Runtime Correction (2026-07-15)
 
 - `[x]` Remove Cloud model tags from the application defaults and demo state.
 - `[x]` Disable remote Ollama endpoints and API-key authentication in the runtime.
+- `[x]` Persist per-Lab concurrency, local model, and approval policy settings.
+- `[x]` Enforce per-Lab concurrency limits without stopping other Labs.
+- `[x]` Add SQLite FTS search and approved Library source-locator enrichment.
+- `[x]` Add Lab Map selection detail panel and API-backed Library search wiring.
 - `[x]` Assign all deputies to the local `qwen3.5:latest` model as the first local baseline.
 - `[x]` Replace the Cloud setup script with `scripts/setup-ollama-local.ps1`.
 - `[x]` Pull `qwen3.5:latest` on this machine and verify a local JSON chat response.

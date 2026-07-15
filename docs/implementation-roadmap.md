@@ -55,7 +55,7 @@ packet and a human decision without fabricated fallback output.
 
 ### M2. Project and Lab Scope
 
-Status: in progress, scope guard implemented
+Status: complete for the local MVP; legacy seed migration remains a later cleanup.
 
 Goal: run one, two, or three research topics independently or in parallel.
 
@@ -66,37 +66,42 @@ Goal: run one, two, or three research topics independently or in parallel.
 - [x] Add project creation, rename, pause, and resume actions; archive remains.
 - [x] Register multiple local ingest roots per project/lab and scan the latest root for that scope.
 - [x] Add Same Topic, Split Topics, and Independent Topic modes.
-- [ ] Add per-lab queue, concurrency, model, and approval settings.
+- [x] Add per-lab queue, concurrency, local Ollama model, and approval policy settings.
 - [x] Prove that pausing one lab does not stop another lab.
 
 ### M3. Functional UI Wiring
 
-Status: visual shell exists, workflow actions are incomplete
+Status: functional desktop web wiring complete for the local MVP; richer drag/drop and unified error telemetry remain follow-up work.
 
-- [ ] Make New Project create a real project and select it.
-- [ ] Make Import Paper open local folder/file ingest and show scan results.
-- [ ] Make Task Board cards draggable or actionable through explicit status
+- [x] Make New Project create a real project and select it.
+- [x] Make Import Paper open local folder/file ingest and show scan results.
+- [x] Make Task Board cards actionable through explicit status
       transitions.
-- [ ] Make Lab Map room/card selection update the real Detail Panel.
-- [ ] Make Agents show current task, model, run status, and last output.
-- [ ] Make Library rows open paper, claim, evidence, and decision details.
-- [ ] Make Settings persist local model, local folder, source, autonomy, and
+- [x] Make Lab Map room/card selection update the real Detail Panel.
+- [x] Make Agents show current task, model, run status, and last output.
+- [x] Make Library rows open paper, claim, evidence, and decision details.
+- [x] Make Settings persist local model, local folder, source, autonomy, and
       concurrency controls.
-- [ ] Surface errors, queued work, active work, review requests, and completed
+- [~] Surface errors, queued work, active work, review requests, and completed
       outputs consistently across map, tasks, and logs.
 
 ### M4. Library and Retrieval
 
-Status: storage foundation exists, retrieval not started
+Status: FTS and source-locator retrieval are implemented; versioning and external lineage remain.
 
 - [ ] Store approved paper summaries, claims, evidence, decisions, and source
       snapshots as versioned records.
-- [ ] Add SQLite FTS search before vector search.
+- [x] Add SQLite FTS search before vector search.
 - [ ] Filter by project, lab, DOI, author, year, source, evidence status, and
       approval status.
-- [ ] Show the exact PDF page/section/offset for every evidence result.
+- [x] Show the exact PDF page/section/offset for every evidence result when stored evidence has a locator.
 - [ ] Track published version, preprint, correction, and retraction lineage.
-- [ ] Keep provisional and unapproved outputs out of default Library search.
+- [x] Keep provisional and unapproved outputs out of default Library search.
+
+Operator note: per-lab execution settings are persisted on `LabInstance` and
+enforced by the local API. Library search uses SQLite FTS5 and enriches approved
+entries with linked paper, claim, decision, and evidence locators. The `auto`
+approval policy is routing metadata only; human Leader approval remains mandatory.
 
 ### M5. True Multi-Round Debate
 

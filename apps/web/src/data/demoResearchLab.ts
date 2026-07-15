@@ -168,6 +168,9 @@ export const labInstances: LabInstanceData[] = [
     summary: "Runs the full Search -> Reader -> Debate -> Strategy -> Experiment -> Writer workflow for one research program.",
     enabled: true,
     createdAt: "2026-07-01",
+    maxParallelTasks: 3,
+    model: "qwen3.5:latest",
+    approvalMode: "assisted",
   },
   {
     id: "lab-beta",
@@ -179,6 +182,9 @@ export const labInstances: LabInstanceData[] = [
     summary: "Can run the same topic in parallel or hold a separate research program with its own task stream.",
     enabled: true,
     createdAt: "2026-07-01",
+    maxParallelTasks: 3,
+    model: "qwen3.5:latest",
+    approvalMode: "assisted",
   },
   {
     id: "lab-gamma",
@@ -190,6 +196,9 @@ export const labInstances: LabInstanceData[] = [
     summary: "Handles a third parallel topic, or can be assigned back to the active project for more throughput.",
     enabled: true,
     createdAt: "2026-07-01",
+    maxParallelTasks: 3,
+    model: "qwen3.5:latest",
+    approvalMode: "assisted",
   },
 ];
 

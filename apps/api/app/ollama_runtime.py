@@ -176,8 +176,8 @@ class OllamaClient:
         except json.JSONDecodeError as error:
             raise OllamaRuntimeError("Ollama returned a non-JSON API response") from error
 
-    def chat_json(self, role: str, messages: list[dict[str, str]]) -> OllamaCallResult:
-        model = model_for_role(role)
+    def chat_json(self, role: str, messages: list[dict[str, str]], model_override: str | None = None) -> OllamaCallResult:
+        model = model_override or model_for_role(role)
         response = self.request_json(
             "/chat",
             {
@@ -231,8 +231,9 @@ class OllamaClient:
         content: dict[str, Any],
         output_model: type[BaseModel],
         validation_error: str,
+        model_override: str | None = None,
     ) -> OllamaCallResult:
-        model = model_for_role(role)
+        model = model_override or model_for_role(role)
         repair_messages = [
             {
                 "role": "system",
@@ -343,7 +344,8 @@ def execute_role(
     started_at = current_iso_time()
     project_id = str(card.get("projectId") or "project-autophagy")
     lab_id = card.get("labId")
-    model = model_for_role(role)
+    lab = get_json("lab_instances", str(card.get("labId"))) if card.get("labId") else None
+    model = str((lab or {}).get("model") or model_for_role(role))
     record = {
         "id": run_id,
         "projectId": project_id,
@@ -364,12 +366,20 @@ def execute_role(
     put_json("agent_runs", run_id, record)
 
     try:
-        response = runtime_client.chat_json(role, messages)
+        response = chat_json_with_model(runtime_client, role, messages, model)
         try:
             validated = output_model.model_validate(response.content).model_dump()
         except ValidationError as error:
             try:
-                response = runtime_client.repair_json(role, messages, response.content, output_model, str(error))
+                response = repair_json_with_model(
+                    runtime_client,
+                    role,
+                    messages,
+                    response.content,
+                    output_model,
+                    str(error),
+                    model,
+                )
                 validated = output_model.model_validate(response.content).model_dump()
             except (OllamaRuntimeError, ValidationError) as repair_error:
                 raise OllamaRuntimeError(f"{role} returned JSON that failed schema validation: {repair_error}") from repair_error
@@ -413,6 +423,44 @@ def execute_role(
         put_json("agent_runs", run_id, record)
         write_runtime_log(card, role, "error", f"{role.title()} deputy failed", str(error))
         raise
+
+
+def chat_json_with_model(
+    client: OllamaClient,
+    role: str,
+    messages: list[dict[str, str]],
+    model: str,
+) -> OllamaCallResult:
+    try:
+        return client.chat_json(role, messages, model_override=model)
+    except TypeError as error:
+        if "model_override" not in str(error):
+            raise
+        return client.chat_json(role, messages)
+
+
+def repair_json_with_model(
+    client: OllamaClient,
+    role: str,
+    messages: list[dict[str, str]],
+    content: dict[str, Any],
+    output_model: type[BaseModel],
+    validation_error: str,
+    model: str,
+) -> OllamaCallResult:
+    try:
+        return client.repair_json(
+            role,
+            messages,
+            content,
+            output_model,
+            validation_error,
+            model_override=model,
+        )
+    except TypeError as error:
+        if "model_override" not in str(error):
+            raise
+        return client.repair_json(role, messages, content, output_model, validation_error)
 
 
 def write_runtime_log(card: dict[str, Any], role: str, level: str, title: str, message: str) -> None:

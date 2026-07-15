@@ -16,7 +16,7 @@ from .ollama_runtime import (
     uses_ollama_runtime,
 )
 from .run_tracker import checkpoint_research_run, create_research_run, update_research_run
-from .storage import get_json, put_json
+from .storage import get_json, list_json, put_json
 
 
 class PipelineError(ValueError):
@@ -40,7 +40,7 @@ def card_lab_id(card: dict[str, Any]) -> str | None:
     return str(lab_id) if lab_id else None
 
 
-def ensure_lab_can_run(card: dict[str, Any]) -> None:
+def ensure_lab_can_run(card: dict[str, Any], run_id: str | None = None) -> None:
     project = get_json("projects", card_project_id(card))
     if project and project.get("status") == "paused":
         raise PipelineError(f"Project {card_project_id(card)} is paused; resume it before running this card")
@@ -54,12 +54,22 @@ def ensure_lab_can_run(card: dict[str, Any]) -> None:
         raise PipelineError(f"Lab {lab_id} is disabled; enable it before running this card")
     if lab.get("status") == "paused":
         raise PipelineError(f"Lab {lab_id} is paused; resume that Lab before running this card")
+    max_parallel = int(lab.get("maxParallelTasks", 3) or 3)
+    active_runs = [
+        run
+        for run in list_json("research_runs")
+        if run.get("labId") == lab_id
+        and run.get("status") in {"queued", "running"}
+        and run.get("id") != run_id
+    ]
+    if len(active_runs) >= max_parallel:
+        raise PipelineError(f"Lab {lab_id} reached its concurrency limit ({max_parallel}); wait for a run to finish")
 
 
 def run_agent_action(card_id: str, action: str, run_id: str | None = None) -> dict[str, Any]:
     card = require_card(card_id)
-    ensure_lab_can_run(card)
     run = get_json("research_runs", run_id) if run_id else None
+    ensure_lab_can_run(card, run_id=run_id)
     if run is None:
         run = create_research_run(card, action)
     elif run.get("status") == "completed":

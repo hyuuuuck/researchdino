@@ -8,6 +8,7 @@ import {
   patchLabInstance,
   registerIngestFolder,
   runAgentAction,
+  searchLibrary,
   scanIngestFolder,
   submitLeaderDecision,
   updateResearchProject,
@@ -35,9 +36,11 @@ import type {
   AgentVariant,
   CardType,
   LabInstanceData,
+  LabApprovalMode,
   LabMode,
   LabParallelMode,
   LaboratoryRoomData,
+  LibraryEntryData,
   PaperSourceConnector,
   ResearchProjectData,
   RoomId,
@@ -455,6 +458,7 @@ export function ResearchDinoOS() {
   const [debateSessions, setDebateSessions] = useState<DebateSessionRecord[]>(initialResearchLabState.debateSessions);
   const [hypotheses, setHypotheses] = useState<HypothesisRecord[]>(initialResearchLabState.hypotheses);
   const [experimentPlans, setExperimentPlans] = useState<ExperimentPlanRecord[]>(initialResearchLabState.experimentPlans);
+  const [libraryEntries, setLibraryEntries] = useState<LibraryEntryData[]>(initialResearchLabState.library);
   const [dataMode, setDataMode] = useState<ResearchDataMode>(initialResearchLabState.mode);
   const [loadError, setLoadError] = useState<string>();
   const [actionMessage, setActionMessage] = useState("");
@@ -481,6 +485,7 @@ export function ResearchDinoOS() {
     setDebateSessions(nextState.debateSessions);
     setHypotheses(nextState.hypotheses);
     setExperimentPlans(nextState.experimentPlans);
+    setLibraryEntries(nextState.library);
     setDataMode(nextState.mode);
   }
 
@@ -630,6 +635,11 @@ export function ResearchDinoOS() {
     const nextStatus = lab.status === "paused" ? "queued" : "paused";
     void persistLabPatches([{ id: labId, patch: { status: nextStatus, enabled: true } }]);
     setActionMessage(`${lab.name} ${nextStatus === "paused" ? "paused" : "resumed"}.`);
+  }
+
+  function handleUpdateLabSettings(labId: string, patch: PatchLabInstanceInput) {
+    void persistLabPatches([{ id: labId, patch }]);
+    setActionMessage("Lab execution settings saved.");
   }
 
   function handleSetParallelMode(mode: LabParallelMode) {
@@ -1024,6 +1034,8 @@ export function ResearchDinoOS() {
                 onSetParallelMode={handleSetParallelMode}
                 onAssignLabProject={handleAssignLabProject}
                 onToggleLab={handleToggleLab}
+                availableModels={modelRuntime.availableModels}
+                onUpdateLabSettings={handleUpdateLabSettings}
                 onNavigate={setScreen}
               />
             )}
@@ -1047,7 +1059,7 @@ export function ResearchDinoOS() {
             )}
             {screen === "report" && <ManuscriptScreen card={firstCard(projectCards, (card) => card.type === "manuscript")} project={activeProject} />}
             {screen === "agents" && <AgentsScreen rooms={rooms} cards={projectCards} runs={projectAgentRuns} researchRuns={projectResearchRuns} />}
-            {screen === "library" && <LibraryScreen project={activeProject} cards={libraryCards} allCards={projectCards} />}
+            {screen === "library" && <LibraryScreen project={activeProject} labId={activeLab?.id} dataMode={dataMode} libraryEntries={libraryEntries} cards={libraryCards} allCards={projectCards} />}
             {screen === "reports" && (
               <ReportsScreen
                 project={activeProject}
@@ -1118,6 +1130,8 @@ function MapScreen({
   onSetParallelMode,
   onAssignLabProject,
   onToggleLab,
+  availableModels,
+  onUpdateLabSettings,
   onNavigate,
 }: {
   rooms: LaboratoryRoomData[];
@@ -1134,10 +1148,17 @@ function MapScreen({
   onSetParallelMode: (mode: LabParallelMode) => void;
   onAssignLabProject: (labId: string, projectId: string) => void;
   onToggleLab: (labId: string) => void;
+  availableModels: string[];
+  onUpdateLabSettings: (labId: string, patch: PatchLabInstanceInput) => void;
   onNavigate: (screen: ScreenId) => void;
 }) {
   const queueCards = cards.filter((card) => !completeStatuses.has(card.status)).slice(0, 4);
   const layoutLookup = new Map(roomLayout.map((room) => [room.id, room]));
+  const [selectedRoomId, setSelectedRoomId] = useState<RoomId>("leader");
+  const [selectedCardId, setSelectedCardId] = useState<string>();
+  const selectedRoom = roomLookup.get(selectedRoomId) ?? rooms[0];
+  const selectedRoomCards = cards.filter((card) => card.currentRoom === selectedRoom?.id);
+  const selectedCard = selectedRoomCards.find((card) => card.id === selectedCardId) ?? selectedRoomCards[0] ?? cards[0];
 
   return (
     <section className="rdos-map-screen">
@@ -1152,6 +1173,8 @@ function MapScreen({
         onSetParallelMode={onSetParallelMode}
         onAssignLabProject={onAssignLabProject}
         onToggleLab={onToggleLab}
+        availableModels={availableModels}
+        onUpdateLabSettings={onUpdateLabSettings}
       />
       <div className="rdos-map-stage">
         <svg className="rdos-map-flow" viewBox="0 0 1300 685" aria-hidden="true">
@@ -1199,11 +1222,24 @@ function MapScreen({
               room={room}
               cards={cards.filter((card) => card.currentRoom === room.id)}
               layout={layout}
+              selected={selectedRoom?.id === room.id}
+              onSelect={() => {
+                setSelectedRoomId(room.id);
+                setSelectedCardId(undefined);
+              }}
               onNavigate={onNavigate}
             />
           );
         })}
       </div>
+
+      <MapSelectionPanel
+        room={selectedRoom}
+        cards={selectedRoomCards}
+        selectedCard={selectedCard}
+        onSelectCard={setSelectedCardId}
+        onNavigate={onNavigate}
+      />
 
       <section className="rdos-global-queue">
         <div>
@@ -1212,7 +1248,7 @@ function MapScreen({
         </div>
         <div className="rdos-queue-grid">
           {queueCards.map((card, index) => (
-            <button type="button" key={card.id} onClick={() => onNavigate(card.currentRoom === "debate" ? "debate" : card.currentRoom === "reading" ? "reader" : "tasks")}>
+            <button type="button" key={card.id} onClick={() => { setSelectedRoomId(card.currentRoom); setSelectedCardId(card.id); }}>
               <Icon name={card.type === "experiment" ? "flask" : card.type === "manuscript" ? "pen" : card.type === "hypothesis" ? "chart" : "chat"} />
               <strong>{card.title}</strong>
               <small>{displayStatus(card.currentRoom)}</small>
@@ -1251,6 +1287,8 @@ function ParallelLabsPanel({
   onSetParallelMode,
   onAssignLabProject,
   onToggleLab,
+  availableModels,
+  onUpdateLabSettings,
 }: {
   projects: ResearchProjectData[];
   labs: LabInstanceData[];
@@ -1262,6 +1300,8 @@ function ParallelLabsPanel({
   onSetParallelMode: (mode: LabParallelMode) => void;
   onAssignLabProject: (labId: string, projectId: string) => void;
   onToggleLab: (labId: string) => void;
+  availableModels: string[];
+  onUpdateLabSettings: (labId: string, patch: PatchLabInstanceInput) => void;
 }) {
   const enabledCount = labs.filter((lab) => lab.enabled).length;
 
@@ -1297,6 +1337,7 @@ function ParallelLabsPanel({
           const running = labCards.filter((card) => runningStatuses.has(card.status)).length;
           const waiting = labCards.filter((card) => waitingStatuses.has(card.status)).length;
           const complete = labCards.filter((card) => completeStatuses.has(card.status)).length;
+          const modelOptions = Array.from(new Set([lab.model, ...availableModels, "qwen3.5:latest"]));
           return (
             <article
               className={`rdos-lab-card${lab.id === activeLabId ? " is-active" : ""}${lab.enabled ? "" : " is-disabled"}`}
@@ -1318,6 +1359,33 @@ function ParallelLabsPanel({
                   ))}
                 </select>
               </label>
+              <div className="rdos-lab-settings">
+                <label>
+                  <span>Max parallel</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="9"
+                    value={lab.maxParallelTasks}
+                    disabled={!lab.enabled}
+                    onChange={(event) => onUpdateLabSettings(lab.id, { maxParallelTasks: Math.min(9, Math.max(1, Number(event.target.value) || 1)) })}
+                  />
+                </label>
+                <label>
+                  <span>Local model</span>
+                  <select value={lab.model} disabled={!lab.enabled} onChange={(event) => onUpdateLabSettings(lab.id, { model: event.target.value })}>
+                    {modelOptions.map((model) => <option value={model} key={model}>{model}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Approval policy</span>
+                  <select value={lab.approvalMode} disabled={!lab.enabled} onChange={(event) => onUpdateLabSettings(lab.id, { approvalMode: event.target.value as LabApprovalMode })}>
+                    <option value="manual">Manual</option>
+                    <option value="assisted">Assisted</option>
+                    <option value="auto">Auto route</option>
+                  </select>
+                </label>
+              </div>
               <footer>
                 <span>{labCards.length} Cards</span>
                 <span>{running} Running</span>
@@ -1357,21 +1425,25 @@ function RoomNode({
   room,
   cards,
   layout,
+  selected,
+  onSelect,
   onNavigate,
 }: {
   room: LaboratoryRoomData;
   cards: WorkflowCardData[];
   layout: (typeof roomLayout)[number];
+  selected: boolean;
+  onSelect: () => void;
   onNavigate: (screen: ScreenId) => void;
 }) {
   const activeCard = cards[0];
   const clickable = Boolean(layout.clickScreen);
   return (
     <button
-      className={`rdos-room-node${clickable ? " is-clickable" : ""}`}
+      className={`rdos-room-node${clickable ? " is-clickable" : ""}${selected ? " is-selected" : ""}`}
       style={{ left: layout.x, top: layout.y, width: layout.w, height: layout.h }}
       type="button"
-      onClick={() => layout.clickScreen && onNavigate(layout.clickScreen)}
+      onClick={() => onSelect()}
     >
       <header>
         <div>
@@ -1400,6 +1472,61 @@ function RoomNode({
         <span>{displayStatus(room.status)}</span>
       </footer>
     </button>
+  );
+}
+
+function MapSelectionPanel({
+  room,
+  cards,
+  selectedCard,
+  onSelectCard,
+  onNavigate,
+}: {
+  room?: LaboratoryRoomData;
+  cards: WorkflowCardData[];
+  selectedCard?: WorkflowCardData;
+  onSelectCard: (cardId: string) => void;
+  onNavigate: (screen: ScreenId) => void;
+}) {
+  const targetScreen: ScreenId = selectedCard?.currentRoom === "debate"
+    ? "debate"
+    : selectedCard?.currentRoom === "reading"
+      ? "reader"
+      : selectedCard?.currentRoom === "writing"
+        ? "report"
+        : "tasks";
+  return (
+    <section className="rdos-map-selection" aria-label="Selected lab map detail">
+      <div className="rdos-map-selection-heading">
+        <span>Selected Workspace</span>
+        <strong>{room?.title ?? "No room selected"}</strong>
+        <em>{room ? `${displayStatus(room.status)} / ${room.agent} Dino` : "Select a room"}</em>
+      </div>
+      <div className="rdos-map-selection-metrics">
+        <span>{room?.metrics.active ?? 0} Active</span>
+        <span>{room?.metrics.waiting ?? 0} Waiting</span>
+        <span>{room?.metrics.complete ?? 0} Complete</span>
+      </div>
+      <div className="rdos-map-selection-card">
+        {cards.length > 0 ? (
+          <select value={selectedCard?.id ?? ""} onChange={(event) => onSelectCard(event.target.value)}>
+            {cards.map((card) => <option value={card.id} key={card.id}>{card.title}</option>)}
+          </select>
+        ) : (
+          <span>No workflow card in this room.</span>
+        )}
+        {selectedCard && (
+          <>
+            <b>{displayStatus(selectedCard.status)} / {selectedCard.progress}%</b>
+            <p>{selectedCard.summary}</p>
+            <small>{selectedCard.evidenceCount} evidence · {selectedCard.requiresUserReview ? "Leader review required" : "No user review pending"}</small>
+          </>
+        )}
+      </div>
+      <button className="rdos-secondary-action" type="button" disabled={!selectedCard} onClick={() => onNavigate(targetScreen)}>
+        Open Workbench
+      </button>
+    </section>
   );
 }
 
@@ -1845,15 +1972,75 @@ function detailSourceValue(card: WorkflowCardData | undefined, key: string) {
 
 function LibraryScreen({
   project,
+  labId,
+  dataMode,
+  libraryEntries,
   cards,
   allCards,
 }: {
   project?: ResearchProjectData;
+  labId?: string;
+  dataMode: ResearchDataMode;
+  libraryEntries: LibraryEntryData[];
   cards: WorkflowCardData[];
   allCards: WorkflowCardData[];
 }) {
   const [query, setQuery] = useState("");
-  const baseRows = cards.length > 0 ? cards : allCards.filter((card) => completeStatuses.has(card.status)).slice(0, 7);
+  const [serverEntries, setServerEntries] = useState(libraryEntries);
+
+  useEffect(() => {
+    setServerEntries(libraryEntries);
+  }, [libraryEntries]);
+
+  useEffect(() => {
+    if (dataMode !== "api") return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      searchLibrary(query, project?.id, labId)
+        .then((entries) => {
+          if (!cancelled) setServerEntries(entries);
+        })
+        .catch(() => {
+          // Keep the last loaded Library snapshot visible when search is temporarily unavailable.
+        });
+    }, 180);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [dataMode, labId, project?.id, query]);
+
+  const entryRows: WorkflowCardData[] = serverEntries.map((entry) => {
+    const sourceCard = allCards.find((card) => card.id === entry.sourceCardId);
+    return {
+      id: entry.id,
+      projectId: entry.projectId,
+      labId: entry.labId,
+      title: entry.title,
+      type: sourceCard?.type ?? "claim",
+      currentRoom: "library",
+      status: "stored_in_library",
+      progress: 100,
+      assignedAgent: "librarian",
+      lastAgent: "leader",
+      lastUpdated: entry.storedAt,
+      requiresUserReview: false,
+      sourcePaperId: entry.sourceCardId,
+      evidenceCount: entry.evidenceCount,
+      approvalStatus: "stored_in_library",
+      summary: entry.summary,
+      details: {
+        ...(sourceCard?.details ?? {}),
+        ...entry.details,
+        "Source type": entry.sourceType,
+        DOI: entry.doi ?? "not recorded",
+        "Source paper ID": entry.sourcePaperId ?? "not linked",
+        "Source locators": entry.sourceLocators,
+        "Decision ID": entry.decisionId,
+      },
+    };
+  });
+  const baseRows = entryRows.length > 0 ? entryRows : cards.length > 0 ? cards : allCards.filter((card) => completeStatuses.has(card.status)).slice(0, 7);
   const rows = baseRows.filter((card) => {
     const sourceCard = card.sourcePaperId ? allCards.find((candidate) => candidate.id === card.sourcePaperId) : undefined;
     const haystack = [

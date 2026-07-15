@@ -53,6 +53,7 @@ export type WorkflowStatus =
 
 export type LabMode = "full" | "literature" | "debate" | "strategy" | "experiment" | "writing";
 export type LabParallelMode = "same_topic" | "split_topics" | "independent_topics";
+export type LabApprovalMode = "manual" | "assisted" | "auto";
 
 export type ApprovalStatus =
   | "draft"
@@ -122,6 +123,9 @@ export interface LabInstanceData {
   summary: string;
   enabled: boolean;
   createdAt: string;
+  maxParallelTasks: number;
+  model: string;
+  approvalMode: LabApprovalMode;
 }
 
 export interface LaboratoryRoomData {
@@ -162,6 +166,23 @@ export interface WorkflowCardData {
   evidenceCount: number;
   approvalStatus: ApprovalStatus;
   summary: string;
+  details: Record<string, unknown>;
+}
+
+export interface LibraryEntryData {
+  id: string;
+  projectId: string;
+  labId?: string;
+  title: string;
+  summary: string;
+  sourceCardId: string;
+  decisionId: string;
+  evidenceCount: number;
+  storedAt: string;
+  sourcePaperId?: string;
+  doi?: string;
+  sourceType: string;
+  sourceLocators: Array<Record<string, unknown>>;
   details: Record<string, unknown>;
 }
 
