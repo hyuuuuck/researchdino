@@ -64,7 +64,7 @@ Goal: run one, two, or three research topics independently or in parallel.
       manuscript records inherit the source card scope. Legacy seed records
       still need a migration pass.
 - [x] Add project creation, rename, pause, and resume actions; archive remains.
-- [ ] Register multiple local ingest roots per project/lab (one scoped root is now isolated).
+- [x] Register multiple local ingest roots per project/lab and scan the latest root for that scope.
 - [x] Add Same Topic, Split Topics, and Independent Topic modes.
 - [ ] Add per-lab queue, concurrency, model, and approval settings.
 - [x] Prove that pausing one lab does not stop another lab.

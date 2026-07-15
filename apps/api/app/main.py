@@ -121,6 +121,15 @@ def ingest_scope_key(project_id: str, lab_id: str) -> str:
     return f"{project_id}:{lab_id}"
 
 
+def latest_ingest_record(project_id: str, lab_id: str) -> dict | None:
+    scoped = [
+        record
+        for record in list_json("ingest_folders")
+        if record.get("projectId") == project_id and record.get("labId") == lab_id
+    ]
+    return scoped[-1] if scoped else get_json("ingest_folders", ingest_scope_key(project_id, lab_id))
+
+
 def card_has_unverified_evidence(card: dict) -> bool:
     detail_unverified = card.get("details", {}).get("Unverified evidence", [])
     if detail_unverified:
@@ -484,7 +493,7 @@ def register_ingest_folder(request: IngestFolderRequest) -> IngestFolderRecord:
     lab_id = resolve_lab_id(request.projectId, request.labId)
     folder = Path(request.path).expanduser().resolve(strict=False)
     record = {
-        "id": ingest_scope_key(request.projectId, lab_id),
+        "id": f"ingest-{uuid4().hex[:12]}",
         "projectId": request.projectId,
         "labId": lab_id,
         "path": str(folder),
@@ -495,6 +504,28 @@ def register_ingest_folder(request: IngestFolderRequest) -> IngestFolderRecord:
     return IngestFolderRecord(**record)
 
 
+@app.get("/ingest/folders", response_model=list[IngestFolderRecord])
+def ingest_folders(projectId: str | None = None, labId: str | None = None) -> list[IngestFolderRecord]:
+    records = list_json("ingest_folders")
+    if projectId is not None:
+        resolved_lab_id = resolve_lab_id(projectId, labId)
+        records = [
+            record
+            for record in records
+            if record.get("projectId") == projectId and record.get("labId") == resolved_lab_id
+        ]
+    elif labId is not None:
+        lab = get_json("lab_instances", labId)
+        if lab is None:
+            raise HTTPException(status_code=400, detail=f"Lab {labId} was not found")
+        records = [
+            record
+            for record in records
+            if record.get("projectId") == lab.get("projectId") and record.get("labId") == labId
+        ]
+    return [IngestFolderRecord(**record) for record in reversed(records)]
+
+
 @app.get("/ingest/folder", response_model=IngestFolderRecord | None)
 def ingest_folder(projectId: str | None = None, labId: str | None = None) -> IngestFolderRecord | None:
     if projectId is None and labId is None:
@@ -503,7 +534,7 @@ def ingest_folder(projectId: str | None = None, labId: str | None = None) -> Ing
     else:
         resolved_project_id = projectId or "project-autophagy"
         resolved_lab_id = resolve_lab_id(resolved_project_id, labId)
-        record = get_json("ingest_folders", ingest_scope_key(resolved_project_id, resolved_lab_id))
+        record = latest_ingest_record(resolved_project_id, resolved_lab_id)
         if record is None:
             record = get_json("ingest_folders", "active")
     if record is None:
@@ -557,7 +588,7 @@ def scan_ingest_folder(projectId: str | None = None, labId: str | None = None) -
     else:
         resolved_project_id = projectId or "project-autophagy"
         resolved_lab_id = resolve_lab_id(resolved_project_id, labId)
-        record = get_json("ingest_folders", ingest_scope_key(resolved_project_id, resolved_lab_id))
+        record = latest_ingest_record(resolved_project_id, resolved_lab_id)
         if record is None:
             record = get_json("ingest_folders", "active")
     if record is None:
