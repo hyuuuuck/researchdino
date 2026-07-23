@@ -29,7 +29,7 @@ finishes, changes scope, or reveals a blocker.
 - `[x]` M5: Reader Agent Pipeline (local baseline)
 - `[!]` M6: Debate + Leader Gate (human decision pending)
 - `[~]` M7: Library + Retrieval
-- `[ ]` M8: Strategy / Experiment / Writing Studio
+- `[~]` M8: Strategy / Experiment / Writing Studio
 - `[~]` M9: External Metadata / Publisher Integration
 
 ## M0: Project Seed
@@ -294,7 +294,7 @@ Goal: store only approved, traceable knowledge.
 
 ## M8: Strategy / Experiment / Writing Studio
 
-Status: Not started.
+Status: In progress. LaTeX-first Writing Studio foundation is implemented.
 
 Goal: turn approved Library knowledge into research outputs.
 
@@ -302,8 +302,18 @@ Goal: turn approved Library knowledge into research outputs.
 - `[ ]` Generate Hypothesis Cards.
 - `[ ]` Score novelty, feasibility, and impact.
 - `[ ]` Generate Experiment Plan Cards with controls, variables, replicates, readouts, and failure points.
-- `[ ]` Generate citation-backed manuscript outlines.
-- `[ ]` Mark manuscript sentences as evidence-linked, citation-required, weak-support, unsupported, or needs-user-review.
+- `[x]` Generate a LaTeX-first manuscript project from Leader-approved Library records.
+- `[x]` Generate deterministic citation keys and `references.bib` from approved sources.
+- `[x]` Save/edit `main.tex`, run a guarded local build, and expose PDF preview/download endpoints.
+- `[~]` Mark manuscript sections as evidence-linked, citation-required, weak-support, unsupported, or needs-user-review.
+- `[ ]` Extend support status and evidence links to individual manuscript sentences.
+
+Verification:
+
+- `python -m unittest discover -s apps/api/tests -v`: 19 tests passed, including five LaTeX Writer tests.
+- `tsc --noEmit` and `vite build`: passed.
+- Fake-compiler regression verified local PDF artifact tracking without shell execution.
+- Missing-compiler regression verified explicit `compiler_unavailable` status.
 
 ## M9: External Metadata / Publisher Integration
 

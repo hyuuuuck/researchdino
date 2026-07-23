@@ -54,7 +54,7 @@ function getAvailableActions(card: WorkflowCardData): AgentActionValue[] {
   if (card.status === "failed" || card.status === "archived") {
     return [];
   }
-  if (card.status === "stored_in_library" || card.approvalStatus === "approved" || card.currentRoom === "library") {
+  if (card.status === "stored_in_library" && card.currentRoom === "library") {
     return ["draft_manuscript"];
   }
   if (card.type === "paper") return ["run_reader", "run_research_pipeline"];

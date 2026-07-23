@@ -33,6 +33,7 @@ export interface ResearchLabState {
   debateSessions: DebateSessionRecord[];
   hypotheses: HypothesisRecord[];
   experimentPlans: ExperimentPlanRecord[];
+  manuscripts: ManuscriptDocumentRecord[];
   library: LibraryEntryData[];
   mode: ResearchDataMode;
 }
@@ -219,6 +220,52 @@ export interface ExperimentPlanRecord {
   createdAt: string;
 }
 
+export type ManuscriptSupportStatus =
+  | "evidence_linked"
+  | "citation_required"
+  | "weak_support"
+  | "unsupported"
+  | "needs_user_review";
+
+export interface ManuscriptSectionRecord {
+  id: string;
+  heading: string;
+  paragraphs: string[];
+  citationKeys: string[];
+  supportStatus: ManuscriptSupportStatus;
+  order: number;
+}
+
+export interface ManuscriptBuildInfo {
+  status: "not_built" | "stale" | "compiler_unavailable" | "compiled" | "failed";
+  compiler: string | null;
+  compilerAvailable: boolean;
+  pdfAvailable: boolean;
+  pdfUrl: string | null;
+  log: string;
+  error: string | null;
+  updatedAt: string | null;
+}
+
+export interface ManuscriptDocumentRecord {
+  id: string;
+  projectId: string;
+  labId?: string;
+  sourceCardId: string;
+  title: string;
+  targetJournal: string | null;
+  version: number;
+  status: "draft" | "compiled" | "build_failed";
+  sourceTex: string;
+  bibliographyBib: string;
+  sections: ManuscriptSectionRecord[];
+  citationKeys: string[];
+  libraryEntryIds: string[];
+  build: ManuscriptBuildInfo;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CreateWorkflowCardInput {
   projectId: string;
   labId?: string;
@@ -298,6 +345,7 @@ export function getDemoResearchLabState(): ResearchLabState {
     debateSessions: [],
     hypotheses: [],
     experimentPlans: [],
+    manuscripts: [],
     library: [],
     mode: "demo",
   };
@@ -326,7 +374,7 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     return getDemoResearchLabState();
   }
 
-  const [projects, labInstances, rooms, cards, logs, agentRuns, agentMessages, researchRuns, modelRuntime, claims, evidence, debateSessions, hypotheses, experimentPlans, library] = await Promise.all([
+  const [projects, labInstances, rooms, cards, logs, agentRuns, agentMessages, researchRuns, modelRuntime, claims, evidence, debateSessions, hypotheses, experimentPlans, manuscripts, library] = await Promise.all([
     fetchJson<ResearchProjectData[]>("/projects"),
     fetchJson<LabInstanceData[]>("/lab-instances"),
     fetchJson<LaboratoryRoomData[]>("/rooms"),
@@ -341,6 +389,7 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     fetchJson<DebateSessionRecord[]>("/debate-sessions"),
     fetchJson<HypothesisRecord[]>("/hypotheses"),
     fetchJson<ExperimentPlanRecord[]>("/experiment-plans"),
+    fetchJson<ManuscriptDocumentRecord[]>("/manuscripts"),
     fetchJson<LibraryEntryData[]>("/library"),
   ]);
 
@@ -359,6 +408,7 @@ export async function loadResearchLabState(): Promise<ResearchLabState> {
     debateSessions,
     hypotheses,
     experimentPlans,
+    manuscripts,
     library,
     mode: "api",
   };
@@ -487,4 +537,38 @@ export async function patchLabInstance(labId: string, input: PatchLabInstanceInp
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+
+export async function saveManuscriptDocument(
+  manuscriptId: string,
+  sourceTex: string,
+  bibliographyBib: string,
+): Promise<ManuscriptDocumentRecord> {
+  if (!configuredApiBaseUrl) {
+    throw new Error("No API base URL is configured.");
+  }
+
+  return fetchJson<ManuscriptDocumentRecord>(`/manuscripts/${manuscriptId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ sourceTex, bibliographyBib }),
+  });
+}
+
+export async function buildManuscriptDocument(manuscriptId: string): Promise<ManuscriptDocumentRecord> {
+  if (!configuredApiBaseUrl) {
+    throw new Error("No API base URL is configured.");
+  }
+
+  return fetchJson<ManuscriptDocumentRecord>(`/manuscripts/${manuscriptId}/build`, {
+    method: "POST",
+  });
+}
+
+export function manuscriptArtifactUrl(
+  manuscriptId: string,
+  artifact: "source" | "bibliography" | "pdf",
+  version?: string,
+): string {
+  const query = version ? `?v=${encodeURIComponent(version)}` : "";
+  return `${configuredApiBaseUrl}/manuscripts/${encodeURIComponent(manuscriptId)}/${artifact}${query}`;
 }

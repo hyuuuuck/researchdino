@@ -1,15 +1,18 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import {
+  buildManuscriptDocument,
   createResearchProject,
   createWorkflowCard,
   deleteWorkflowCard,
   getDemoResearchLabState,
   loadResearchLabState,
+  manuscriptArtifactUrl,
   patchLabInstance,
   registerIngestFolder,
   runAgentAction,
   searchLibrary,
   scanIngestFolder,
+  saveManuscriptDocument,
   submitLeaderDecision,
   updateResearchProject,
   updateWorkflowCard,
@@ -24,6 +27,7 @@ import {
   type IngestScanResult,
   type LeaderDecisionValue,
   type ModelRuntimeStatus,
+  type ManuscriptDocumentRecord,
   type PatchLabInstanceInput,
   type ResearchClaimRecord,
   type ResearchDataMode,
@@ -458,6 +462,7 @@ export function ResearchDinoOS() {
   const [debateSessions, setDebateSessions] = useState<DebateSessionRecord[]>(initialResearchLabState.debateSessions);
   const [hypotheses, setHypotheses] = useState<HypothesisRecord[]>(initialResearchLabState.hypotheses);
   const [experimentPlans, setExperimentPlans] = useState<ExperimentPlanRecord[]>(initialResearchLabState.experimentPlans);
+  const [manuscripts, setManuscripts] = useState<ManuscriptDocumentRecord[]>(initialResearchLabState.manuscripts);
   const [libraryEntries, setLibraryEntries] = useState<LibraryEntryData[]>(initialResearchLabState.library);
   const [dataMode, setDataMode] = useState<ResearchDataMode>(initialResearchLabState.mode);
   const [loadError, setLoadError] = useState<string>();
@@ -485,6 +490,7 @@ export function ResearchDinoOS() {
     setDebateSessions(nextState.debateSessions);
     setHypotheses(nextState.hypotheses);
     setExperimentPlans(nextState.experimentPlans);
+    setManuscripts(nextState.manuscripts);
     setLibraryEntries(nextState.library);
     setDataMode(nextState.mode);
   }
@@ -546,6 +552,18 @@ export function ResearchDinoOS() {
     firstCard(projectCards, (card) => card.type === "claim_debate");
   const reviewCards = projectCards.filter((card) => card.requiresUserReview || card.status === "waiting_for_user" || card.status === "waiting_for_leader_review");
   const libraryCards = projectCards.filter((card) => card.currentRoom === "library" || card.status === "stored_in_library");
+  const manuscriptCard = firstCard(projectCards, (card) => card.type === "manuscript");
+  const writerSourceCard = firstCard(
+    libraryCards,
+    (card) => card.type !== "manuscript" && card.status === "stored_in_library",
+  );
+  const activeManuscript =
+    manuscripts.find((document) => document.id === manuscriptCard?.id) ??
+    manuscripts.find(
+      (document) =>
+        belongsToProject(document, activeProject?.id ?? defaultProjectId) &&
+        belongsToLabInstance(document, activeLab),
+    );
 
   const stats = useMemo(() => {
     const inProgress = projectCards.filter((card) => runningStatuses.has(card.status)).length;
@@ -714,6 +732,59 @@ export function ResearchDinoOS() {
       await refreshState();
       setActionMessage(`Leader decision recorded: ${displayStatus(decision)}.`);
       if (decision === "stored_in_library") setScreen("library");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setActionMessage(message);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  async function handleSaveManuscript(
+    document: ManuscriptDocumentRecord | undefined,
+    sourceTex: string,
+    bibliographyBib: string,
+  ) {
+    if (!document || dataMode !== "api") {
+      setActionMessage("API mode and a generated LaTeX manuscript are required.");
+      return;
+    }
+    setBusyAction(`manuscript-save:${document.id}`);
+    setActionMessage("");
+    try {
+      const saved = await saveManuscriptDocument(document.id, sourceTex, bibliographyBib);
+      await refreshState();
+      setActionMessage(`LaTeX source saved as version ${saved.version}.`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      setActionMessage(message);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  async function handleBuildManuscript(
+    document: ManuscriptDocumentRecord | undefined,
+    sourceTex: string,
+    bibliographyBib: string,
+  ) {
+    if (!document || dataMode !== "api") {
+      setActionMessage("API mode and a generated LaTeX manuscript are required.");
+      return;
+    }
+    setBusyAction(`manuscript-build:${document.id}`);
+    setActionMessage("");
+    try {
+      if (sourceTex !== document.sourceTex || bibliographyBib !== document.bibliographyBib) {
+        await saveManuscriptDocument(document.id, sourceTex, bibliographyBib);
+      }
+      const built = await buildManuscriptDocument(document.id);
+      await refreshState();
+      setActionMessage(
+        built.build.status === "compiled"
+          ? `PDF compiled locally with ${built.build.compiler}.`
+          : built.build.error ?? `LaTeX build status: ${built.build.status}.`,
+      );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       setActionMessage(message);
@@ -1057,7 +1128,21 @@ export function ResearchDinoOS() {
                 busy={Boolean(busyAction)}
               />
             )}
-            {screen === "report" && <ManuscriptScreen card={firstCard(projectCards, (card) => card.type === "manuscript")} project={activeProject} />}
+            {screen === "report" && (
+              <ManuscriptScreen
+                card={manuscriptCard}
+                document={activeManuscript}
+                project={activeProject}
+                sourceCard={writerSourceCard}
+                dataMode={dataMode}
+                busy={Boolean(busyAction)}
+                onCreate={() => handleAgentAction(writerSourceCard, "draft_manuscript", "report")}
+                onSave={(sourceTex, bibliographyBib) =>
+                  handleSaveManuscript(activeManuscript, sourceTex, bibliographyBib)}
+                onBuild={(sourceTex, bibliographyBib) =>
+                  handleBuildManuscript(activeManuscript, sourceTex, bibliographyBib)}
+              />
+            )}
             {screen === "agents" && <AgentsScreen rooms={rooms} cards={projectCards} runs={projectAgentRuns} researchRuns={projectResearchRuns} />}
             {screen === "library" && <LibraryScreen project={activeProject} labId={activeLab?.id} dataMode={dataMode} libraryEntries={libraryEntries} cards={libraryCards} allCards={projectCards} />}
             {screen === "reports" && (
@@ -1764,37 +1849,196 @@ function ReaderScreen({
   );
 }
 
-function ManuscriptScreen({ card, project }: { card?: WorkflowCardData; project?: ResearchProjectData }) {
+function ManuscriptScreen({
+  card,
+  document: manuscript,
+  project,
+  sourceCard,
+  dataMode,
+  busy,
+  onCreate,
+  onSave,
+  onBuild,
+}: {
+  card?: WorkflowCardData;
+  document?: ManuscriptDocumentRecord;
+  project?: ResearchProjectData;
+  sourceCard?: WorkflowCardData;
+  dataMode: ResearchDataMode;
+  busy: boolean;
+  onCreate: () => void | Promise<void>;
+  onSave: (sourceTex: string, bibliographyBib: string) => void | Promise<void>;
+  onBuild: (sourceTex: string, bibliographyBib: string) => void | Promise<void>;
+}) {
+  const [activeFile, setActiveFile] = useState<"main.tex" | "references.bib">("main.tex");
+  const [sourceTex, setSourceTex] = useState(manuscript?.sourceTex ?? "");
+  const [bibliographyBib, setBibliographyBib] = useState(manuscript?.bibliographyBib ?? "");
+  const [editorMode, setEditorMode] = useState<"source" | "preview">("source");
+
+  useEffect(() => {
+    setSourceTex(manuscript?.sourceTex ?? "");
+    setBibliographyBib(manuscript?.bibliographyBib ?? "");
+  }, [manuscript?.bibliographyBib, manuscript?.id, manuscript?.sourceTex, manuscript?.version]);
+
+  const fallbackSections = ["Abstract", "Introduction", "Evidence Synthesis", "Limitations", "Discussion"];
+  const sections = manuscript?.sections.map((section) => section.heading) ?? fallbackSections;
+  const dirty = Boolean(
+    manuscript &&
+    (sourceTex !== manuscript.sourceTex || bibliographyBib !== manuscript.bibliographyBib),
+  );
+  const editableSource = activeFile === "main.tex" ? sourceTex : bibliographyBib;
+  const wordCount = sourceTex
+    .replace(/\\[A-Za-z]+(?:\[[^\]]*\])?(?:\{[^}]*\})?/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+  const buildStatus = manuscript?.build.status ?? "not_built";
+  const buildLabel = buildStatus.replace(/_/g, " ");
+  const pdfUrl =
+    manuscript?.build.pdfAvailable
+      ? manuscriptArtifactUrl(manuscript.id, "pdf", manuscript.build.updatedAt ?? manuscript.updatedAt)
+      : undefined;
+  const canEdit = dataMode === "api" && Boolean(manuscript);
+
   return (
     <section className="rdos-report-grid">
       <aside className="rdos-panel">
-        <span className="rdos-eyebrow">Sections</span>
-        {["Abstract", "1 Introduction", "2 Mechanisms", "3 Evidence Synthesis", "4 Discussion", "References"].map((item, index) => (
-          <div className={`rdos-section-row${index === 2 ? " is-active" : ""}`} key={item}>{item}</div>
+        <span className="rdos-eyebrow">LaTeX Project</span>
+        <button
+          className={`rdos-latex-file${activeFile === "main.tex" ? " is-active" : ""}`}
+          type="button"
+          onClick={() => {
+            setActiveFile("main.tex");
+            setEditorMode("source");
+          }}
+        >
+          <strong>main.tex</strong>
+          <span>Canonical manuscript</span>
+        </button>
+        <button
+          className={`rdos-latex-file${activeFile === "references.bib" ? " is-active" : ""}`}
+          type="button"
+          onClick={() => {
+            setActiveFile("references.bib");
+            setEditorMode("source");
+          }}
+        >
+          <strong>references.bib</strong>
+          <span>{manuscript?.citationKeys.length ?? 0} approved citations</span>
+        </button>
+        <span className="rdos-eyebrow rdos-latex-section-label">Sections</span>
+        {sections.map((item, index) => (
+          <div className={`rdos-section-row${index === 0 ? " is-active" : ""}`} key={`${item}-${index}`}>{item}</div>
         ))}
       </aside>
       <article className="rdos-panel rdos-editor">
-        <div className="rdos-toolbar"><b>B</b><b>I</b><b>H2</b><b>•</b><span><i />Writer drafting</span></div>
-        <h2>{card?.title ?? `${project?.shortTitle ?? "Research"} Manuscript`}</h2>
-        <em>ResearchDino Lab - {project?.title ?? "Research Project"}</em>
-        <h3>Abstract</h3>
-        <p>{project?.description ?? "This manuscript draft is assembled from project-specific, leader-approved evidence."}</p>
-        <h3>1 Introduction</h3>
-        <p>The manuscript writer only promotes claims that have passed Leader review and Library storage.<span className="rdos-caret" /></p>
+        <div className="rdos-toolbar rdos-latex-toolbar">
+          <button
+            className={editorMode === "source" ? "is-active" : ""}
+            type="button"
+            onClick={() => setEditorMode("source")}
+          >
+            Source
+          </button>
+          <button
+            className={editorMode === "preview" ? "is-active" : ""}
+            type="button"
+            onClick={() => setEditorMode("preview")}
+          >
+            PDF Preview
+          </button>
+          <span><i />{dirty ? "Unsaved changes" : `Version ${manuscript?.version ?? 0}`}</span>
+        </div>
+        <div className="rdos-latex-title">
+          <div>
+            <h2>{manuscript?.title ?? card?.title ?? `${project?.shortTitle ?? "Research"} Manuscript`}</h2>
+            <em>ResearchDino Lab · LaTeX-first Writing Studio</em>
+          </div>
+          <span className={`rdos-build-badge is-${buildStatus}`}>{buildLabel}</span>
+        </div>
+        {editorMode === "source" ? (
+          <>
+            {!manuscript && (
+              <div className="rdos-latex-empty">
+                <p>Store a Leader-approved card in Library, then create the LaTeX project.</p>
+                <button
+                  className="rdos-primary-action"
+                  type="button"
+                  disabled={dataMode !== "api" || busy || !sourceCard}
+                  onClick={onCreate}
+                >
+                  {busy ? "Writer working..." : sourceCard ? `Start from ${sourceCard.title}` : "No approved Library source"}
+                </button>
+              </div>
+            )}
+            <textarea
+              className="rdos-latex-editor"
+              aria-label={`Edit ${activeFile}`}
+              spellCheck={false}
+              value={editableSource}
+              placeholder={activeFile === "main.tex" ? "% main.tex will appear here" : "% references.bib will appear here"}
+              onChange={(event) => {
+                if (activeFile === "main.tex") setSourceTex(event.target.value);
+                else setBibliographyBib(event.target.value);
+              }}
+              readOnly={!canEdit}
+            />
+          </>
+        ) : pdfUrl ? (
+          <iframe className="rdos-pdf-preview" src={pdfUrl} title={`${manuscript?.title ?? "Manuscript"} PDF preview`} />
+        ) : (
+          <div className="rdos-pdf-empty">
+            <strong>No compiled PDF yet</strong>
+            <p>{manuscript?.build.error ?? "Save the LaTeX source and run the local PDF build."}</p>
+          </div>
+        )}
       </article>
       <aside className="rdos-panel">
         <span className="rdos-eyebrow">Draft Stats</span>
-        <StatRow label="Words" value="1,240" />
-        <StatRow label="Citations" value="18" />
-        <StatRow label="Grade" value="13" />
-        <h3>Coherence Check</h3>
+        <StatRow label="Source words" value={wordCount} />
+        <StatRow label="Citations" value={manuscript?.citationKeys.length ?? 0} />
+        <StatRow label="Version" value={manuscript?.version ?? 0} />
+        <StatRow label="Compiler" value={manuscript?.build.compiler ?? "Not detected"} />
+        <h3>Evidence Gate</h3>
         <ul className="rdos-keypoints">
-          <li className="good">Claims are linked to Library records.</li>
-          <li className="good">Citation placeholders are present.</li>
-          <li className="warn">Two claims still need stronger source traces.</li>
+          <li className={manuscript?.libraryEntryIds.length ? "good" : "warn"}>
+            {manuscript?.libraryEntryIds.length ?? 0} Leader-approved Library source(s).
+          </li>
+          <li className={manuscript?.citationKeys.length ? "good" : "warn"}>
+            Citation keys are generated only from Library records.
+          </li>
+          <li className={buildStatus === "compiled" ? "good" : "warn"}>
+            Local build: {buildLabel}.
+          </li>
         </ul>
-        <button className="rdos-secondary-action" type="button">Export DOCX</button>
-        <button className="rdos-secondary-action" type="button">Export PDF</button>
+        <button
+          className="rdos-secondary-action"
+          type="button"
+          disabled={!canEdit || busy || !dirty}
+          onClick={() => onSave(sourceTex, bibliographyBib)}
+        >
+          Save LaTeX
+        </button>
+        <button
+          className="rdos-primary-action"
+          type="button"
+          disabled={!canEdit || busy}
+          onClick={() => onBuild(sourceTex, bibliographyBib)}
+        >
+          {busy ? "Working..." : "Build PDF"}
+        </button>
+        {manuscript && (
+          <div className="rdos-latex-downloads">
+            <a href={manuscriptArtifactUrl(manuscript.id, "source", manuscript.updatedAt)}>Download .tex</a>
+            <a href={manuscriptArtifactUrl(manuscript.id, "bibliography", manuscript.updatedAt)}>Download .bib</a>
+            {pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer">Open PDF</a>}
+          </div>
+        )}
+        {manuscript?.build.log && (
+          <details className="rdos-build-log">
+            <summary>Compiler log</summary>
+            <pre>{manuscript.build.log}</pre>
+          </details>
+        )}
       </aside>
     </section>
   );

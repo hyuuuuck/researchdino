@@ -133,13 +133,18 @@ Status: plan skeleton exists, result loop missing
 
 ### M7. Manuscript Studio
 
-Status: outline scaffold exists
+Status: LaTeX-first vertical slice implemented; sentence-level audit remains
 
-- [ ] Draft only from approved Library knowledge.
+- [x] Draft only from Leader-approved Library knowledge.
+- [x] Generate canonical `main.tex` and `references.bib` artifacts.
+- [x] Add guarded local Tectonic/latexmk compilation and PDF preview endpoints.
+- [x] Add LaTeX/BibTeX editing, build state, downloads, and PDF preview to Writing Studio.
+- [~] Link manuscript sections to approved Library records and deterministic citation keys.
 - [ ] Link every factual sentence to claim/evidence records.
-- [ ] Mark unsupported, citation-required, weak-support, and hypothesis text.
+- [~] Mark sections as evidence-linked, citation-required, weak-support, unsupported, or needs-user-review.
 - [ ] Add manuscript versions and Leader review.
-- [ ] Add Markdown export, then DOCX/PDF export after citation audit works.
+- [x] Add native LaTeX/BibTeX export and derived PDF export.
+- [ ] Add DOCX export after sentence-level citation audit works.
 
 ### M8. Permitted External Sources
 

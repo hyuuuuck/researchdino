@@ -54,8 +54,11 @@ Milestones and active checklists are tracked in
 This repo now contains the Laboratory Map web app, a local FastAPI/SQLite
 backend, real local-PDF parsing with project/lab scoping, structured research
 ledger records, and deterministic Reader/Debate/Strategy/Experiment workflow
-actions. Ollama-backed model execution and external metadata enrichment remain
-in progress.
+actions. Writing Studio now stores a LaTeX-first manuscript project
+(`main.tex` plus `references.bib`) generated only from Leader-approved Library
+records, with guarded local PDF compilation when Tectonic or latexmk is
+installed. Ollama-backed model execution and external metadata enrichment
+remain in progress.
 
 ## Run The Web Prototype
 

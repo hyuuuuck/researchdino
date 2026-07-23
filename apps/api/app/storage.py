@@ -25,6 +25,7 @@ TABLES = {
     "debate_sessions": [],
     "hypotheses": [],
     "experiment_plans": [],
+    "manuscript_documents": [],
     "agent_runs": [],
     "agent_messages": [],
     "research_runs": [],
@@ -41,6 +42,7 @@ SEARCHABLE_TABLES = {
     "paper_files",
     "paper_texts",
     "leader_decisions",
+    "manuscript_documents",
 }
 
 

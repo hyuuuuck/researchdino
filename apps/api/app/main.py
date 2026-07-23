@@ -5,10 +5,17 @@ from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, PlainTextResponse
 
 from .agent_pipeline import PipelineError, run_agent_action
 from .demo_data import DEMO_ROOMS
 from .ingest import is_pymupdf_available, scan_pdf_folder
+from .manuscript import (
+    ManuscriptError,
+    build_manuscript_document,
+    manuscript_pdf_path,
+    update_manuscript_document,
+)
 from .ollama_runtime import OllamaClient
 from .run_tracker import create_research_run
 from .source_adapters import MetadataAdapterError, lookup_metadata, normalize_doi
@@ -35,6 +42,8 @@ from .schemas import (
     ModelRuntimeStatus,
     MetadataCandidate,
     MetadataLookupResponse,
+    ManuscriptDocumentPatchRequest,
+    ManuscriptDocumentRecord,
     PaperFileRecord,
     PaperTextRecord,
     ResearchClaim,
@@ -532,6 +541,93 @@ def hypotheses() -> list[HypothesisRecord]:
 def experiment_plans() -> list[ExperimentPlanRecord]:
     entries = [ExperimentPlanRecord(**entry) for entry in list_json("experiment_plans")]
     return list(reversed(entries))
+
+
+@app.get("/manuscripts", response_model=list[ManuscriptDocumentRecord])
+def manuscripts(
+    projectId: str | None = None,
+    labId: str | None = None,
+) -> list[ManuscriptDocumentRecord]:
+    records = list_json("manuscript_documents")
+    if projectId is not None:
+        records = [record for record in records if record.get("projectId") == projectId]
+    if labId is not None:
+        records = [record for record in records if record.get("labId") == labId]
+    return [ManuscriptDocumentRecord(**record) for record in reversed(records)]
+
+
+@app.get("/manuscripts/{manuscript_id}", response_model=ManuscriptDocumentRecord)
+def manuscript(manuscript_id: str) -> ManuscriptDocumentRecord:
+    record = get_json("manuscript_documents", manuscript_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Manuscript document not found")
+    return ManuscriptDocumentRecord(**record)
+
+
+@app.patch("/manuscripts/{manuscript_id}", response_model=ManuscriptDocumentRecord)
+def patch_manuscript(
+    manuscript_id: str,
+    request: ManuscriptDocumentPatchRequest,
+) -> ManuscriptDocumentRecord:
+    try:
+        record = update_manuscript_document(
+            manuscript_id,
+            source_tex=request.sourceTex,
+            bibliography_bib=request.bibliographyBib,
+            target_journal=request.targetJournal,
+        )
+    except ManuscriptError as error:
+        status_code = 404 if "was not found" in str(error) else 400
+        raise HTTPException(status_code=status_code, detail=str(error)) from error
+    return ManuscriptDocumentRecord(**record)
+
+
+@app.post("/manuscripts/{manuscript_id}/build", response_model=ManuscriptDocumentRecord)
+def build_manuscript(manuscript_id: str) -> ManuscriptDocumentRecord:
+    try:
+        record = build_manuscript_document(manuscript_id)
+    except ManuscriptError as error:
+        status_code = 404 if "was not found" in str(error) else 400
+        raise HTTPException(status_code=status_code, detail=str(error)) from error
+    return ManuscriptDocumentRecord(**record)
+
+
+@app.get("/manuscripts/{manuscript_id}/source", response_class=PlainTextResponse)
+def manuscript_source(manuscript_id: str) -> PlainTextResponse:
+    record = get_json("manuscript_documents", manuscript_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Manuscript document not found")
+    return PlainTextResponse(
+        record["sourceTex"],
+        media_type="application/x-tex; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{manuscript_id}.tex"'},
+    )
+
+
+@app.get("/manuscripts/{manuscript_id}/bibliography", response_class=PlainTextResponse)
+def manuscript_bibliography(manuscript_id: str) -> PlainTextResponse:
+    record = get_json("manuscript_documents", manuscript_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Manuscript document not found")
+    return PlainTextResponse(
+        record["bibliographyBib"],
+        media_type="application/x-bibtex; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{manuscript_id}.bib"'},
+    )
+
+
+@app.get("/manuscripts/{manuscript_id}/pdf", response_class=FileResponse)
+def manuscript_pdf(manuscript_id: str) -> FileResponse:
+    try:
+        pdf_path = manuscript_pdf_path(manuscript_id)
+    except ManuscriptError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=f"{manuscript_id}.pdf",
+        content_disposition_type="inline",
+    )
 
 
 @app.post("/agent-actions", response_model=AgentActionResult)

@@ -454,6 +454,57 @@ class ExperimentPlanRecord(BaseModel):
     createdAt: str
 
 
+class ManuscriptBuildInfo(BaseModel):
+    status: Literal["not_built", "stale", "compiler_unavailable", "compiled", "failed"]
+    compiler: str | None = None
+    compilerAvailable: bool = False
+    pdfAvailable: bool = False
+    pdfUrl: str | None = None
+    log: str = ""
+    error: str | None = None
+    updatedAt: str | None = None
+
+
+class ManuscriptSectionRecord(BaseModel):
+    id: str
+    heading: str
+    paragraphs: list[str] = Field(default_factory=list)
+    citationKeys: list[str] = Field(default_factory=list)
+    supportStatus: Literal[
+        "evidence_linked",
+        "citation_required",
+        "weak_support",
+        "unsupported",
+        "needs_user_review",
+    ]
+    order: int
+
+
+class ManuscriptDocumentRecord(BaseModel):
+    id: str
+    projectId: str = "project-autophagy"
+    labId: str | None = None
+    sourceCardId: str
+    title: str
+    targetJournal: str | None = None
+    version: int = 1
+    status: Literal["draft", "compiled", "build_failed"]
+    sourceTex: str
+    bibliographyBib: str
+    sections: list[ManuscriptSectionRecord] = Field(default_factory=list)
+    citationKeys: list[str] = Field(default_factory=list)
+    libraryEntryIds: list[str] = Field(default_factory=list)
+    build: ManuscriptBuildInfo
+    createdAt: str
+    updatedAt: str
+
+
+class ManuscriptDocumentPatchRequest(BaseModel):
+    sourceTex: str | None = None
+    bibliographyBib: str | None = None
+    targetJournal: str | None = None
+
+
 class ApiMode(BaseModel):
     mode: Literal["api"]
     source: Literal["sqlite"]

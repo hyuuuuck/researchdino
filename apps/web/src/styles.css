@@ -4611,6 +4611,36 @@ button {
   color: #1a1719;
 }
 
+.rdos-latex-file {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  border: 1px solid #e3e3e3;
+  border-radius: 10px;
+  margin-top: 9px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #1a1719;
+  cursor: pointer;
+  text-align: left;
+}
+
+.rdos-latex-file:hover,
+.rdos-latex-file.is-active {
+  border-color: #1a1719;
+  background: #f7f7f7;
+}
+
+.rdos-latex-file span {
+  color: #8b8b8b;
+  font-size: 11px;
+}
+
+.rdos-latex-section-label {
+  display: block;
+  margin-top: 24px;
+}
+
 .rdos-editor {
   min-height: 560px;
 }
@@ -4633,6 +4663,146 @@ button {
   margin-left: auto;
   color: #6b6b6b;
   font-size: 12px;
+}
+
+.rdos-latex-toolbar button {
+  border: 1px solid #e3e3e3;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #fff;
+  color: #6b6b6b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.rdos-latex-toolbar button.is-active {
+  border-color: #1a1719;
+  background: #1a1719;
+  color: #fff;
+}
+
+.rdos-latex-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 18px 0 14px;
+}
+
+.rdos-build-badge {
+  flex: none;
+  border: 1px solid #d7d7d7;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #f5f5f5;
+  color: #686868;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rdos-build-badge.is-compiled {
+  border-color: #72aa86;
+  background: #edf8f0;
+  color: #2f7347;
+}
+
+.rdos-build-badge.is-failed,
+.rdos-build-badge.is-compiler_unavailable {
+  border-color: #e1b3aa;
+  background: #fff2ef;
+  color: #a04a3a;
+}
+
+.rdos-latex-editor {
+  width: 100%;
+  min-height: 470px;
+  resize: vertical;
+  border: 1px solid #dcdcdc;
+  border-radius: 10px;
+  padding: 15px;
+  background: #fafafa;
+  color: #242424;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  tab-size: 2;
+}
+
+.rdos-latex-editor:focus {
+  outline: 2px solid rgba(26, 23, 25, 0.16);
+  border-color: #1a1719;
+}
+
+.rdos-latex-editor[readonly] {
+  color: #777;
+}
+
+.rdos-latex-empty {
+  border: 1px solid #ead7ab;
+  border-radius: 9px;
+  padding: 10px 12px;
+  background: #fff9eb;
+  color: #7d632b !important;
+}
+
+.rdos-pdf-preview {
+  width: 100%;
+  min-height: 600px;
+  border: 1px solid #dcdcdc;
+  border-radius: 10px;
+  background: #f1f1f1;
+}
+
+.rdos-pdf-empty {
+  display: grid;
+  min-height: 470px;
+  place-content: center;
+  border: 1px dashed #cfcfcf;
+  border-radius: 10px;
+  background: #fafafa;
+  color: #555;
+  text-align: center;
+}
+
+.rdos-latex-downloads {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.rdos-latex-downloads a {
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  padding: 8px;
+  color: #333;
+  font-size: 11px;
+  font-weight: 750;
+  text-align: center;
+  text-decoration: none;
+}
+
+.rdos-build-log {
+  margin-top: 14px;
+  color: #666;
+  font-size: 11px;
+}
+
+.rdos-build-log summary {
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.rdos-build-log pre {
+  overflow: auto;
+  max-height: 220px;
+  border-radius: 8px;
+  padding: 10px;
+  background: #181818;
+  color: #eaeaea;
+  white-space: pre-wrap;
 }
 
 .rdos-editor em {

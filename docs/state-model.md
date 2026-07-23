@@ -139,6 +139,12 @@ are presentation outputs derived from the durable objects.
 - Stores manuscript sections linked to approved Library entries and citation
   references. Each section draft has a support status so unsupported text stays
   visible.
+- Uses `main.tex` as the canonical document and `references.bib` as the
+  bibliography artifact.
+- Stores deterministic citation keys, local build status, compiler/log
+  metadata, and the derived PDF location.
+- Rejects source cards that have not passed Leader approval and Library
+  storage.
 
 ## Approval Rules
 

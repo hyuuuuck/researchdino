@@ -99,9 +99,23 @@ class ExperimentPlanDeputyOutput(BaseModel):
     failure_risks: list[str] = Field(min_length=1)
 
 
+class WriterSectionOutput(BaseModel):
+    heading: str
+    paragraphs: list[str] = Field(default_factory=list)
+    citation_keys: list[str] = Field(default_factory=list)
+    support_status: Literal[
+        "evidence_linked",
+        "citation_required",
+        "weak_support",
+        "unsupported",
+        "needs_user_review",
+    ] = "citation_required"
+
+
 class WriterDeputyOutput(BaseModel):
     title: str
     outline_sections: list[str] = Field(min_length=1)
+    sections: list[WriterSectionOutput] = Field(default_factory=list)
     citation_requirements: list[str] = Field(default_factory=list)
     unsupported_points: list[str] = Field(default_factory=list)
 
@@ -749,8 +763,10 @@ def run_experiment_deputy(
 
 def run_writer_deputy(
     card: dict[str, Any],
+    approved_sources: list[dict[str, Any]] | None = None,
     client: OllamaClient | None = None,
 ) -> dict[str, Any]:
+    source_context = approved_sources or []
     return execute_role(
         "writer",
         "manuscript_outline",
@@ -761,8 +777,25 @@ def run_writer_deputy(
                 "content": json_context(
                     {
                         "approved_source": {"title": card.get("title"), "summary": card.get("summary"), "details": card.get("details", {})},
-                        "task": "Draft only a citation-aware manuscript outline. Flag every unsupported point instead of filling gaps.",
-                        "required_json": {"title": "string", "outline_sections": ["string"], "citation_requirements": ["string"], "unsupported_points": ["string"]},
+                        "approved_library_sources": source_context,
+                        "task": (
+                            "Draft a citation-aware manuscript structure. Use only citation keys from approved_library_sources. "
+                            "Return plain paragraph text; the server renders safe LaTeX. Flag every unsupported point instead of filling gaps."
+                        ),
+                        "required_json": {
+                            "title": "string",
+                            "outline_sections": ["string"],
+                            "sections": [
+                                {
+                                    "heading": "string",
+                                    "paragraphs": ["plain text"],
+                                    "citation_keys": ["approved key only"],
+                                    "support_status": "evidence_linked|citation_required|weak_support|unsupported|needs_user_review",
+                                }
+                            ],
+                            "citation_requirements": ["string"],
+                            "unsupported_points": ["string"],
+                        },
                     }
                 ),
             },

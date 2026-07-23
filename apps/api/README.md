@@ -56,7 +56,7 @@ The MVP exposes `POST /agent-actions` for local deterministic workflow actions:
 - `run_reader`: move a Paper Card into Reading Bench and create a Debate Room card.
 - `run_debate`: consolidate debate outputs, route the card to Leader Office, and create Strategy / Experiment follow-up cards.
 - `design_experiment`: create an Experiment Bay protocol skeleton from a hypothesis.
-- `draft_manuscript`: create a Writing Studio outline from an approved source card.
+- `draft_manuscript`: create a LaTeX Writing Studio project from a Leader-approved, Library-stored source card.
 - `run_research_pipeline`: advance a Paper or Debate Card through Reader/Debate/Strategy/Experiment handoffs into a Leader review packet. It stops before Library storage; Leader approval is still required.
 
 The default runtime is now local Ollama through the local Ollama API. It does
@@ -111,6 +111,38 @@ tests. It should not be used for real research runs.
 If a local model call fails or Ollama is stopped, the failure is stored in
 `/agent-runs` with the provider error instead of generating fallback research
 content. The runtime never contacts a remote Ollama endpoint.
+
+## LaTeX Writing Studio
+
+`draft_manuscript` accepts only a card that has passed the human Leader gate
+and has been stored in Library. The Writer deputy returns structured sections
+and approved citation keys; the API renders those records into safe local
+artifacts instead of executing model-authored shell commands:
+
+- `main.tex`: canonical manuscript source.
+- `references.bib`: bibliography generated from approved Library records.
+- `build/main.pdf`: derived output when a supported local compiler is present.
+
+The first local compiler preference is Tectonic in untrusted mode, followed by
+`latexmk` with shell escape disabled and restricted TeX file access. Builds
+have a 90-second timeout, use argument arrays rather than a shell, and reject
+file-reading, file-writing, package-loading, and other unsafe TeX commands.
+An approved citation key alone never proves model-authored prose: new Writer
+paragraphs remain `needs_user_review` unless they exactly match the approved
+Library summary in this first version.
+
+Manuscript endpoints:
+
+- `GET /manuscripts`
+- `GET /manuscripts/{id}`
+- `PATCH /manuscripts/{id}`
+- `POST /manuscripts/{id}/build`
+- `GET /manuscripts/{id}/source`
+- `GET /manuscripts/{id}/bibliography`
+- `GET /manuscripts/{id}/pdf`
+
+If neither Tectonic nor latexmk is installed, source generation and editing
+still work and the build record reports `compiler_unavailable`.
 
 ## Structured Research Ledger
 

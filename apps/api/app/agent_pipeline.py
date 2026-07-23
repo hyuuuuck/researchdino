@@ -7,6 +7,12 @@ from uuid import uuid4
 
 from .evidence_verifier import verify_evidence_excerpt
 from .model_registry import model_for_role
+from .manuscript import (
+    ManuscriptError,
+    approved_library_sources,
+    build_manuscript_document,
+    create_manuscript_document,
+)
 from .ollama_runtime import (
     OllamaRuntimeError,
     run_debate_deputies,
@@ -618,12 +624,27 @@ def draft_manuscript(card_id: str, run_id: str | None = None) -> dict[str, Any]:
     card = require_card(card_id)
     if run_id:
         checkpoint_research_run(run_id, "writer_started", cardId=card_id)
-    if card.get("status") not in {"approved", "stored_in_library"} and card.get("currentRoom") != "library":
-        raise PipelineError("Writer can only use Leader-approved or Library-stored source cards.")
+    if card.get("status") != "stored_in_library" or card.get("currentRoom") != "library":
+        raise PipelineError("Writer can only use source cards stored in Library after Leader approval.")
+    try:
+        library_sources = approved_library_sources(card)
+    except ManuscriptError as error:
+        raise PipelineError(str(error)) from error
     writer_output: dict[str, Any] | None = None
     if uses_ollama_runtime():
         try:
-            writer_output = run_writer_deputy(card)
+            writer_output = run_writer_deputy(
+                card,
+                [
+                    {
+                        "id": source["id"],
+                        "title": source.get("title"),
+                        "summary": source.get("summary"),
+                        "citationKey": source["citationKey"],
+                    }
+                    for source in library_sources
+                ],
+            )
         except OllamaRuntimeError as error:
             raise PipelineError(f"Ollama Writer deputy failed: {error}") from error
     manuscript_id = f"manuscript-{card['id']}"
@@ -654,6 +675,15 @@ def draft_manuscript(card_id: str, run_id: str | None = None) -> dict[str, Any]:
             "Citation status": "citation_required",
         },
     }
+    try:
+        manuscript_document = create_manuscript_document(manuscript_card, card, writer_output)
+        manuscript_document = build_manuscript_document(manuscript_document["id"])
+    except ManuscriptError as error:
+        raise PipelineError(f"LaTeX Writer failed: {error}") from error
+    manuscript_card["details"]["LaTeX document"] = manuscript_document["id"]
+    manuscript_card["details"]["LaTeX version"] = manuscript_document["version"]
+    manuscript_card["details"]["Build status"] = manuscript_document["build"]["status"]
+    manuscript_card["details"]["Citation keys"] = manuscript_document["citationKeys"]
     put_json("cards", manuscript_card["id"], manuscript_card)
     write_log(
         agent="writer",

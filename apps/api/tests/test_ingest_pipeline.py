@@ -25,7 +25,7 @@ class LocalPdfIngestTests(unittest.TestCase):
         os.environ["RESEARCHDINO_AGENT_RUNTIME"] = "deterministic"
         self.original_db_path = storage.DB_PATH
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp_dir.name)
+        self.root = Path(self.temp_dir.name).resolve()
         self.pdf_path = self.root / "layered-materials-study.pdf"
         self.create_pdf(self.pdf_path)
         storage.DB_PATH = self.root / "researchdino-test.sqlite3"
